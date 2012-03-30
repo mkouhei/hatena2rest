@@ -1,0 +1,23 @@
+﻿{{#entry}}
+{{title}}
+{{border}}
+
+{{body}}
+
+.. author:: {{author}}
+.. categories:: {{#categories}} {{category}}, {{/categories}}
+.. tags::
+{{/entry}}
+
+{{#comments}}
+----
+
+Comment:
+
+	{{comment}}
+
+	written by {{author}}
+	{{month}}/{{date}}/{{year}} {{hour}}:{{min}}:{{sec}}
+	{{url}}
+
+{{/comments}}
