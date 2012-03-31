@@ -253,9 +253,11 @@ class ExtractData(HTMLParser):
         self.fn_flag = ''
         self.nofn_flag = ''
         self.list_flag = ''
+        self.img_src = ''
+        self.img_alt = ''
 
     def handle_starttag(self, tag, attrs):
-        import re
+        import re, htmllib
         attrs = dict(attrs)
         if tag == 'style':
             self.flag = 1
@@ -279,6 +281,10 @@ class ExtractData(HTMLParser):
             self.flag = 'li'
         if tag == 'a':
             self.nofn_flag = 1
+        if tag == 'img':
+            self.img_src = str(attrs.get('src'))
+            if attrs.get('alt'):
+                self.img_alt = attrs.get('alt')
 
     def handle_data(self, data):
         if self.flag == 1:
@@ -300,6 +306,12 @@ class ExtractData(HTMLParser):
         elif self.flag == 'li':
             self.text = self.text + '* ' + data
             #self.text = self.text + '#. ' + data + '\n'
+        elif self.img_src:
+            if self.img_alt:
+                self.text = self.text + '\n.. image:: ' + self.img_src + \
+                    '\n   :alt: ' + self.img_alt + '\n\n'
+            else:
+                self.text = self.text + '\n.. image:: ' + self.img_src + '\n\n'
         else:
             self.text += data
 
@@ -308,7 +320,6 @@ class ExtractData(HTMLParser):
             self.flag = ''
         if tag == 'a':
             self.nofn_flag = 0
-
 
 class restView(MT2Rest):
     
