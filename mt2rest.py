@@ -294,7 +294,7 @@ class ExtractData(HTMLParser):
         elif self.flag == 'lv3':
             self.text = self.text + '\n' + data + '\n' + '=' * (len(data.encode('utf-8'))-2)*2 + '\n\n'
         elif self.fn_flag:
-            self.text = self.text + '\n.. rubric:: footnote\n\n'
+            self.text = self.text + '\n\n'
         elif self.flag == 'fn':
             if self.nofn_flag:
                 data = ''
