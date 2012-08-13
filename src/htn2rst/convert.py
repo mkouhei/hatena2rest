@@ -21,18 +21,23 @@
 Hatena diary export data format
 ---
 0:AUTHOR, 1:TITLE, 3:DATE, 4:CATEGORY, 5:BODY, 6:COMMENT
- unused key: STATUS, ALLOW COMMENTS, CONVERT BREAKS, ALLOW PINGS, 
+ unused key: STATUS, ALLOW COMMENTS, CONVERT BREAKS, ALLOW PINGS,
  EXTENDED BODY, EXCERPT, KEYWORDS
 
  COMMENT: 6-1:AUTHOR, 6-2:EMAIL, 6-3:URL, 6-4:DATE, body(without key)
  unused key: IP
 '''
 
+import os
+import shutil
+import re
+import sys
+import htmllib
 import pystache
 from HTMLParser import HTMLParser
 
-class MT2Rest(pystache.View):
-    import re
+
+class Htn2Rest(pystache.View):
     template_path = '.'
     template_name = 'rest'
     template_encoding = 'utf-8'
@@ -41,7 +46,6 @@ class MT2Rest(pystache.View):
     Read Hatena diary exported data with MT format
     '''
     def readFile(self):
-        import os.path, sys
         f = sys.argv[1]
 
         if os.path.isfile(f):
@@ -50,12 +54,13 @@ class MT2Rest(pystache.View):
     def initialize(self):
         self.categories = self.comments = []
         self.YYYY = self.mm = self.dd = self.HH = self.MM = self.SS = ''
-        self.c_YYYY = self.c_mm = self.c_dd = self.c_HH = self.c_MM = self.c_SS = ''
-        self.body = self.c_author = self.email = self.siteurl = self.comment = ''
+        self.c_YYYY = self.c_mm = self.c_dd = \
+            self.c_HH = self.c_MM = self.c_SS = ''
+        self.body = self.c_author = self.email = \
+            self.siteurl = self.comment = ''
         self.body_flag = self.comment_flag = self.pre_flag = 0
-    
+
     def datas(self):
-        import os, shutil
         self.datas = self.dates = []
         dates = ''
         self.initialize()
@@ -77,21 +82,20 @@ class MT2Rest(pystache.View):
         f.write(dates)
         f.close()
 
-
     def generateEntry(self):
         self.entry = {}
         self.entry.update({
-                "author"     : self.author,
-                "title"      : self.title,
-                "border"     : self.border,
-                "year"       : self.YYYY,
-                "month"      : self.mm,
-                "date"       : self.dd,
-                "hour"       : self.HH,
-                "min"        : self.MM,
-                "sec"        : self.SS,
-                "categories" : self.categories,
-                "body"       : self.body
+                "author": self.author,
+                "title": self.title,
+                "border": self.border,
+                "year": self.YYYY,
+                "month": self.mm,
+                "date": self.dd,
+                "hour": self.HH,
+                "min": self.MM,
+                "sec": self.SS,
+                "categories": self.categories,
+                "body": self.body
                 })
 
     def generateComments(self):
@@ -99,12 +103,12 @@ class MT2Rest(pystache.View):
                 "author": self.c_author,
                 "email": self.email,
                 "url": self.siteurl,
-                "year" : self.c_YYYY,
-                "month" : self.c_mm,
-                "date" : self.c_dd,
-                "hour" : self.c_HH,
-                "min" : self.c_MM,
-                "sec" : self.c_SS,
+                "year": self.c_YYYY,
+                "month": self.c_mm,
+                "date": self.c_dd,
+                "hour": self.c_HH,
+                "min": self.c_MM,
+                "sec": self.c_SS,
                 "comment": self.comment
                 })
 
@@ -120,13 +124,13 @@ class MT2Rest(pystache.View):
 
         # get title
         elif self.re.match("^TITLE:", line):
-            self.title  = unicode(line[:-1].split(': ')[1], 'utf-8')
+            self.title = unicode(line[:-1].split(': ')[1], 'utf-8')
             self.border = "#" * len(self.title) * 2
 
         # get category
         elif self.re.match("^CATEGORY:", line):
             category = unicode(line[:-1].split(': ')[1], 'utf-8')
-            self.categories.append({"category":category})
+            self.categories.append({"category": category})
 
         # get timestamp
         elif self.re.match("^DATE:", line):
@@ -142,9 +146,8 @@ class MT2Rest(pystache.View):
 
     # Get body
     def getBody(self, line):
-        import re
         # outernal code-block
-        if self.pre_flag ==0:
+        if self.pre_flag == 0:
             if self.re.match("^BODY:", line):
                 self.body_flag = 1
                 self.body = ''
@@ -152,7 +155,8 @@ class MT2Rest(pystache.View):
                 self.body_flag = 0
             elif self.body_flag == 1 and self.re.match("^$", line):
                 self.body = self.body
-            elif self.body_flag == 1 and self.re.match('<pre>|<pre class(.)*', line):
+            elif (self.body_flag == 1 and
+                  self.re.match('<pre>|<pre class(.)*', line)):
                 self.pre_flag = 1
                 self.body += '\n.. code-block:: none\n\n'
             elif self.body_flag == 1:
@@ -200,7 +204,7 @@ class MT2Rest(pystache.View):
                     self.c_HH = str(int(self.c_HH) + 12)
                 else:
                     self.HH = str(int(self.HH) + 12)
-     
+
     # Get comment
     def getComment(self, line):
         if self.re.match("^COMMENT:", line):
@@ -225,12 +229,12 @@ class MT2Rest(pystache.View):
 
     # closing one blog entry
     def closeEntry(self, line):
-        import os, re
         if re.search('^--------$', line) and self.pre_flag == 0:
             self.generateEntry()
             p = restView(self.entry, self.comments)
             p.context_list = p.data()
-            dpath = str(self.YYYY) + '/' + str(self.mm) + '/' + str(self.dd) + '/'
+            dpath = (str(self.YYYY) + '/' + str(self.mm) +
+                     '/' + str(self.dd) + '/')
             outpath = 'out/' + dpath
             if not os.path.isdir(outpath):
                 os.makedirs(outpath)
@@ -243,8 +247,9 @@ class MT2Rest(pystache.View):
             f.close()
             self.initialize()
 
+
 class ExtractData(HTMLParser):
-    
+
     def __init__(self):
         HTMLParser.__init__(self)
         self.text = ''
@@ -257,7 +262,6 @@ class ExtractData(HTMLParser):
         self.img_alt = ''
 
     def handle_starttag(self, tag, attrs):
-        import re, htmllib
         attrs = dict(attrs)
         if tag == 'style':
             self.flag = 1
@@ -290,9 +294,11 @@ class ExtractData(HTMLParser):
         if self.flag == 1:
             data = ''
         elif self.flag == 'lv2':
-            self.text = self.text + '\n' + data + '\n' + '*' * (len(data.encode('utf-8'))-2)*2 + '\n\n'
+            self.text = (self.text + '\n' + data + '\n' +
+                         '*' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
         elif self.flag == 'lv3':
-            self.text = self.text + '\n' + data + '\n' + '=' * (len(data.encode('utf-8'))-2)*2 + '\n\n'
+            self.text = (self.text + '\n' + data + '\n' +
+                         '=' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
         elif self.fn_flag:
             self.text = self.text + '\n\n'
         elif self.flag == 'fn':
@@ -316,19 +322,21 @@ class ExtractData(HTMLParser):
             self.text += data
 
     def handle_endtag(self, tag):
-        if tag == 'h4' or tag == 'h5' or tag == 'p' or tag == 'span' or tag == 'li':
+        if (tag == 'h4' or tag == 'h5' or tag == 'p'
+            or tag == 'span' or tag == 'li'):
             self.flag = ''
         if tag == 'a':
             self.nofn_flag = 0
 
-class restView(MT2Rest):
-    
+
+class restView(Htn2Rest):
+
     def __init__(self, entry, comments):
         self.entry = entry
         self.comments = comments
 
     def data(self):
-        p = MT2Rest()
+        p = Htn2Rest()
         p.initialize()
 
         if self.comments:
@@ -337,11 +345,8 @@ class restView(MT2Rest):
             data = [{"data":{"entry":self.entry}}]
         return data
 
-                    
 
 def main():
-    o = MT2Rest()
+    o = Htn2Rest()
     o.readFile()
     o.datas()
-
-main()
