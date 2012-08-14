@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
     Copyright (C) 2012 Kouhei Maeda <mkouhei@palmtb.net>
@@ -33,39 +32,51 @@ import shutil
 import re
 import sys
 import htmllib
-import pystache
-from HTMLParser import HTMLParser
+import parser
+import view
 
 
-class Htn2Rest(pystache.View):
-    template_path = '.'
-    template_name = 'rest'
-    template_encoding = 'utf-8'
-
+class Htn2Rest(object):
     '''
     Read Hatena diary exported data with MT format
     '''
+
+    def __init__(self):
+        self.categories = []
+        self.comments = []
+        self.YYYY = ''
+        self.mm = ''
+        self.dd = ''
+        self.HH = ''
+        self.MM = ''
+        self.SS = ''
+        self.c_YYYY = ''
+        self.c_mm = ''
+        self.c_dd = ''
+        self.c_HH = ''
+        self.c_MM = ''
+        self.c_SS = ''
+        self.body = ''
+        self.c_author = ''
+        self.email = ''
+        self.siteurl = ''
+        self.comment = ''
+        self.body_flag = False
+        self.comment_flag = False
+        self.pre_flag = False
+
     def readFile(self):
         f = sys.argv[1]
 
         if os.path.isfile(f):
             self.f = open(f, 'r')
 
-    def initialize(self):
-        self.categories = self.comments = []
-        self.YYYY = self.mm = self.dd = self.HH = self.MM = self.SS = ''
-        self.c_YYYY = self.c_mm = self.c_dd = \
-            self.c_HH = self.c_MM = self.c_SS = ''
-        self.body = self.c_author = self.email = \
-            self.siteurl = self.comment = ''
-        self.body_flag = self.comment_flag = self.pre_flag = 0
-
     def datas(self):
         self.datas = self.dates = []
         dates = ''
         self.initialize()
         for line in self.f:
-            if self.pre_flag == 0:
+            if not self.pre_flag:
                 self.getParam(line)
             self.getBody(line)
             self.getComment(line)
@@ -73,7 +84,7 @@ class Htn2Rest(pystache.View):
 
         master = 'out/master.rst.tmp'
         if not os.path.isfile(master):
-            shutil.copyfile('master.tmpl', master)
+            shutil.copyfile('master.template', master)
 
         while len(self.dates) > 0:
             dates += self.dates.pop()
@@ -146,25 +157,10 @@ class Htn2Rest(pystache.View):
 
     # Get body
     def getBody(self, line):
-        # outernal code-block
-        if self.pre_flag == 0:
-            if self.re.match("^BODY:", line):
-                self.body_flag = 1
-                self.body = ''
-            elif self.body_flag == 1 and self.re.search('^-----$', line):
-                self.body_flag = 0
-            elif self.body_flag == 1 and self.re.match("^$", line):
-                self.body = self.body
-            elif (self.body_flag == 1 and
-                  self.re.match('<pre>|<pre class(.)*', line)):
-                self.pre_flag = 1
-                self.body += '\n.. code-block:: none\n\n'
-            elif self.body_flag == 1:
-                self.body += self.parseHTML(re.sub('\t*', '', line))
         # internal code-block
-        elif self.pre_flag == 1:
-            if self.body_flag == 1 and self.re.match('</pre>', line):
-                self.pre_flag = 0
+        if self.pre_flag:
+            if self.body_flag and re.match('</pre>', line):
+                self.pre_flag = False
                 self.body += '\n\n'.encode('utf-8')
             else:
                 if re.match('&#60;', line):
@@ -176,6 +172,22 @@ class Htn2Rest(pystache.View):
                 elif re.match('&#38;', line):
                     line = re.sub('&#38;', '&', line)
                 self.body += '   ' + self.parseHTML(line)
+        # outernal code-block
+        else:
+            if re.match("^BODY:", line):
+                self.body_flag = True
+                self.body = ''
+            elif self.body_flag:
+                if re.search('^-----$', line):
+                    self.body_flag = False
+                elif re.match("^$", line):
+                    #self.body = self.body
+                    pass
+                elif re.match('<pre>|<pre class(.)*', line):
+                    self.pre_flag = True
+                    self.body += '\n.. code-block:: none\n\n'
+                else:
+                    self.body += self.parseHTML(re.sub('\t*', '', line))
 
     # Get timestamp
     def getDate(self, line):
@@ -208,145 +220,48 @@ class Htn2Rest(pystache.View):
     # Get comment
     def getComment(self, line):
         if self.re.match("^COMMENT:", line):
-            self.comment_flag = 1
+            self.comment_flag = True
             self.comment = ''
-        elif self.comment_flag == 1 and self.re.search('^-----$', line):
-            self.generateComments()
-        elif self.comment_flag == 1:
-            self.getParam(line)
-            if self.re.match("^(?!AUTHOR:|EMAIL:|IP:|URL:|DATE:)", line):
-                self.comment += self.parseHTML(line[:-1])
+        elif self.comment_flag:
+            if self.re.search('^-----$', line):
+                self.generateComments()
+            else:
+                self.getParam(line)
+                if self.re.match("^(?!AUTHOR:|EMAIL:|IP:|URL:|DATE:)", line):
+                    self.comment += self.parseHTML(line[:-1])
         else:
             self.comments = []
-            self.comment_flag = 0
+            self.comment_flag = False
 
     # Parse HTML format of body text
     def parseHTML(self, line):
-        parser = ExtractData()
+        parser = parser.HtnParse()
         parser.feed(unicode(line, 'utf-8'))
         parser.close()
         return parser.text
 
     # closing one blog entry
     def closeEntry(self, line):
-        if re.search('^--------$', line) and self.pre_flag == 0:
+        if re.search('^--------$', line) and not self.pre_flag:
             self.generateEntry()
-            p = restView(self.entry, self.comments)
-            p.context_list = p.data()
-            dpath = (str(self.YYYY) + '/' + str(self.mm) +
-                     '/' + str(self.dd) + '/')
+            v = view.restView(self.entry, self.comments)
+            v.context_list = v.data()
+            dpath = ((str(self.YYYY) + '/' + str(self.mm) +
+                      '/' + str(self.dd) + '/'))
+
             outpath = 'out/' + dpath
             if not os.path.isdir(outpath):
                 os.makedirs(outpath)
+
             fbasename = str(self.HH) + str(self.MM) + str(self.SS)
             fname = fbasename + ".rst"
+
             fpath = outpath + fname
+
             self.dates.append('   ' + dpath + fbasename + '\n')
-            f = open(fpath, 'w')
-            f.write(p.render().encode('utf-8'))
-            f.close()
-            self.initialize()
 
+            with open(fpath, 'w') as f:
+                f.write(v.render().encode('utf-8'))
+                f.close()
 
-class ExtractData(HTMLParser):
-
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self.text = ''
-        self.temp = ''
-        self.flag = ''
-        self.fn_flag = ''
-        self.nofn_flag = ''
-        self.list_flag = ''
-        self.img_src = ''
-        self.img_alt = ''
-
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if tag == 'style':
-            self.flag = 1
-        if tag == 'div' and re.match('amazlet', str(attrs.get('class'))):
-            self.flag = 1
-        if tag == 'h4':
-            self.flag = 'lv2'
-        if tag == 'h5':
-            self.flag = 'lv3'
-        if tag == 'div' and str(attrs.get('class')) == 'footnote':
-            self.fn_flag = 1
-        if tag == 'p' and str(attrs.get('class')) == 'footnote':
-            self.flag = 'fn'
-        if tag == 'span' and str(attrs.get('class')) == 'footnote':
-            self.flag = 'span-fn'
-        if tag == 'ul':
-            self.list_flag = 'ul'
-        if tag == 'ol':
-            self.list_flag = 'ol'
-        if tag == 'li':
-            self.flag = 'li'
-        if tag == 'a':
-            self.nofn_flag = 1
-        if tag == 'img':
-            self.img_src = str(attrs.get('src'))
-            if attrs.get('alt'):
-                self.img_alt = attrs.get('alt')
-
-    def handle_data(self, data):
-        if self.flag == 1:
-            data = ''
-        elif self.flag == 'lv2':
-            self.text = (self.text + '\n' + data + '\n' +
-                         '*' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
-        elif self.flag == 'lv3':
-            self.text = (self.text + '\n' + data + '\n' +
-                         '=' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
-        elif self.fn_flag:
-            self.text = self.text + '\n\n'
-        elif self.flag == 'fn':
-            if self.nofn_flag:
-                data = ''
-            else:
-                self.text = self.text + '.. [#] ' + data
-        elif self.flag == 'span-fn':
-            if self.nofn_flag:
-                self.text = self.text + ' [#]_ '
-        elif self.flag == 'li':
-            self.text = self.text + '* ' + data
-            #self.text = self.text + '#. ' + data + '\n'
-        elif self.img_src:
-            if self.img_alt:
-                self.text = self.text + '\n.. image:: ' + self.img_src + \
-                    '\n   :alt: ' + self.img_alt + '\n\n'
-            else:
-                self.text = self.text + '\n.. image:: ' + self.img_src + '\n\n'
-        else:
-            self.text += data
-
-    def handle_endtag(self, tag):
-        if (tag == 'h4' or tag == 'h5' or tag == 'p'
-            or tag == 'span' or tag == 'li'):
-            self.flag = ''
-        if tag == 'a':
-            self.nofn_flag = 0
-
-
-class restView(Htn2Rest):
-
-    def __init__(self, entry, comments):
-        self.entry = entry
-        self.comments = comments
-
-    def data(self):
-        p = Htn2Rest()
-        p.initialize()
-
-        if self.comments:
-            data = [{"entry":self.entry, "comments":self.comments}]
-        else:
-            data = [{"data":{"entry":self.entry}}]
-        return data
-
-
-def main():
-    o = Htn2Rest()
-    o.readFile()
-    o.datas()
+            self.__init__()

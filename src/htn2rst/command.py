@@ -48,6 +48,11 @@ def main():
     try:
         args = parse_options()
         args.func(args)
+
+        o = Htn2Rest()
+        o.readFile()
+        o.datas()
+
     except RuntimeError as e:
         error(e)
         return
