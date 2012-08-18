@@ -17,6 +17,7 @@
 """
 
 import re
+import time
 from HTMLParser import HTMLParser
 import xml.etree.ElementTree
 
@@ -103,12 +104,14 @@ class MtParser(HTMLParser):
             self.nofn_flag = 0
 
 
-# Hatena specify XML format
 class HtnParser(object):
+    """ Hatena specify XML format"""
 
     def __init__(self, file):
         with open(file) as f:
             self.xmlobj = xml.etree.ElementTree.ElementTree(file=f)
+            self.code_flag = False
+            self.list_lv = 0
 
     def list_days(self):
         return self.xmlobj.getroot().findall('day')
@@ -117,70 +120,236 @@ class HtnParser(object):
         date = dayobj.get('date')
         bodies = dayobj.find('body')
         comments = dayobj.find('comments')
-
+        print('dirpath:' + date.replace('-', '/') + '/')
         self.process_bodies(bodies)
+
         if comments is not None:
             self.process_comments(comments)
 
-    # body starting is 1, not also 0
+    """ body starting is 1, not also 0"""
     def process_bodies(self, bodies):
-        [self.process_body(body) for body in bodies.text.rsplit('\n*')]
 
-    # processing body
+        """ remove comment out"""
+        prog = re.compile('\n\<!--(.*\n)*--\>')
+
+        """split multi entries per day,
+        but except '*) in line head at code-block'
+        """
+        prog2 = re.compile('\n\*(?!\)|\*|\ |\n|/\d?\ \*)')
+
+        bodies_ = re.sub(prog, '', bodies.text)
+        entries = prog2.split(bodies_)
+
+        [self.process_body(body) for body in entries if body]
+
     def process_body(self, body):
+        """processing body"""
+
         if body:
             timestamp = self.get_timestamp(body)
+
             title = self.get_title(body)
             categories = self.get_categories(body)
             entry_body = self.get_entry_body(body)
+            s = self.htn2rest(entry_body)
 
-            '''
-            print(timestamp)
-            print(title)
-            print(categories)
-            print(entry_body)
-            '''
+            print("title: %s" % title)
+            print("timestamp: %s" % timestamp)
+            print("categories: %s" % categories)
+            print("body: %s" % s)
 
-    # get timestamp of entry
-    def get_timestamp(self, body):
-        timestamp = body.split('*')[0]
-        return timestamp
+    def regex_search(self, pattern, string):
+        r = re.compile(pattern, flags=re.U)
+        m = r.search(string)
+        return r, m
 
-    # get title of entry
+    def htn2rest(self, string):
+        """Daily body text to rest format."""
+
+        footnote = ''
+        merge_string = ''
+        if string:
+            for s in string.split('\n'):
+
+                """hyperlink conversion
+
+                hatena [url:title:titlestring]
+                reSt `titlestring <url>`_
+                """
+                r = re.compile(
+                    '\[((http|https)://[a-zA-Z0-9\-_/\.%#&\?]*):title=(.*)\]',
+                    flags=re.U)
+                m = r.search(s)
+                if m:
+                    print(m.groups())
+                    print("uri: %s" % m.group(1))
+                    print("explanation: %s" % m.group(3))
+                    s = r.sub(' `' + m.group(3) +
+                              ' <' + m.group(1) + '>`_ ', s)
+
+                # hatena fotolife
+                r, m = self.regex_search(
+                    '\[f:id:(.*):([0-9]*)[a-z]:image\]', s)
+                if m:
+                    s = r.sub(('\n.. image:: http://f.hatena.ne.jp/' +
+                               m.group(1) + '/' + m.group(2) + '\n'), s)
+
+                # inside code block
+                if self.code_flag:
+                    r, m = self.regex_search('^\|\|<|^\|<$', s)
+                    if m:
+                        s = r.sub('\n', s)
+                        # code block closing
+                        self.code_flag = False
+                    else:
+                        s = re.sub('^', '   ', s)
+
+                # outside code block
+                else:
+                    r, m = self.regex_search('>\|([a-zA-Z0-9]*)\|$|>\|()$', s)
+                    if m:
+                        # code block opening
+                        self.code_flag = True
+                        if m.group(1):
+                            s = r.sub('\n.. code-block:: '
+                                       + m.group(1) + '\n', s)
+                        else:
+                            s = r.sub('\n.. code-block:: sh\n', s)
+
+                    """list
+                    3 is --- or +++
+                    2 is -- or ++
+                    1 is - or +
+                    """
+                    for i in range(1, 4)[::-1]:
+                        r, m = self.regex_search(
+                            '(^(-{%d}))|(^(\+{%d}))' % (i, i), s)
+                        if m:
+                            item = ('  ' * (i - 1) + '* ' if m.group(1)
+                                    else '  ' * (i - 1) + '#. ')
+                            if self.list_lv == i:
+                                repl = item
+                            else:
+                                repl = '\n' + item
+                                self.list_lv = i
+                            s = r.sub(repl, s)
+
+                    # 2:section, 3:subsection
+                    for i in range(2, 4)[::-1]:
+                        sep = '-' if i == 2 else '^'
+                        r, m = self.regex_search('^(\*){%d}(.*)' % i, s)
+                        if m:
+                            s = r.sub(m.group(2) + '\n'
+                                      + sep * len(m.group(2)) * i + '\n', s)
+
+                    # footnote
+                    r, m = self.regex_search('\(\((.*)\)\)', s)
+                    if m:
+                        s = r.sub(' [#]_ ', s)
+                        footnote += '.. [#] ' + m.group(1) + '\n'
+
+                    '''
+                    r = re.compile(
+                    '\[((http|https)://[a-zA-Z0-9\-_/\.%#&\?]*):title=(.*)\]',
+                    flags=re.U)
+                    m = r.search(footnote)
+                    if m:
+                        print(m.groups())
+                        print("uri: %s" % m.group(1))
+                        print("explanation: %s" % m.group(3))
+                        footnote = r.sub(' `' + m.group(3) +
+                                   ' <' + m.group(1) + '>`_ ', footnote)
+                                   '''
+
+                    # remove hatena syntax
+                    r, m = self.regex_search('(\[\[|\]\])', s)
+                    if m:
+                        s = r.sub('', s)
+
+                merge_string += s + '\n'
+            return merge_string + '\n' + footnote
+
+    def hyperlink(string):
+        prog = re.compile(
+            '\[(http?.://[\w\-_/\.~%#&\?]*):title=(?!<\[http?://.*)(.*)\]',
+            flags=re.U)
+
+    def get_metadata(self, string):
+        if string:
+            prog = re.compile('\*(\d*)\*(\[.*\])*(\[http?://.*\])(.*)')
+            prog2 = re.compile('\*(\d*)\*(\[.*\])*(.*)')
+
+            if prog.search(string):
+                timestamp, categories, title_, title2_ =\
+                    prog.search(string).groups()
+            else:
+                timestamp, categories, title = prog2.search(string).groups()
+
+    def get_timestamp(self, string):
+        """get timestamp of entry"""
+        if string:
+            prog = re.compile('\s+')
+            timestamp = string.split('*')[0]
+            date = prog.split(time.ctime(int(timestamp)))[3]
+            return date
+
     def get_title(self, body):
-        title = re.split('^\d*\*(\[.*\])*', body)[2].split('\n')[0]
-        return title
+        """get title of entry"""
+        prog = re.compile('\n', flags=re.U)
+        prog2 = re.compile('^\d*\*(\[.*\](\[http.*\]))*', flags=re.U)
 
-    # get category of entry
+        body_ = prog.split(body)[0]
+
+        for i, v in enumerate(prog2.split(body_)):
+            if i == 2:
+                title = v
+                return title
+
     def get_categories(self, body):
+        """get category of entry"""
         categories = []
-        c = re.split('(\[(.*)\])', body)[2]
-        if c.find(']['):
-            [categories.append(category) for category in c.split('][')]
-        else:
-            categories.append(c)
-        return categories
+        prog = re.compile('^\d*\*(\[.*\])*(?!\[http.*\])', flags=re.U)
+        prog2 = re.compile('^\[|\]$', flags=re.U)
+        prog3 = re.compile('\]\[', flags=re.U)
 
-    # get body of entry
+        # remove [http://--/:title=hoge] from categories.
+
+        text_ = prog.split(body, re.U)
+        for i, v in enumerate(text_):
+            if i == 1:
+                # When exist category
+                if v:
+                    text2_ = prog2.sub('', v)
+                    categories = prog3.split(text2_)
+                    return categories
+
     def get_entry_body(self, body):
+        """get body of entry"""
         if body.find('\n'):
             entry_body = body.split('\n', 1)[1]
             return entry_body
 
-    # processing multiple comments
     def process_comments(self, comments):
+        """processing multiple comments"""
+        print("comments:\n" + "-" * 10)
         [self.process_comment(comment) for comment in comments]
 
-    # print one comment
     def process_comment(self, comment):
+        """print one comment"""
         username = comment.find('username').text
         timestamp = comment.find('timestamp').text
         comment = comment.find('body').text
 
         '''
         formatting reST format of comment
-
-        print(username)
-        print(timestamp)
-        print(comment)
         '''
+        print("username: %s" % username)
+        print("timestamp: %s" % timestamp)
+        print("comment: %s" % self.comment2rest(comment))
+
+    def comment2rest(self, string):
+        # remove <br>
+        r = re.compile('<br?>', flags=re.U)
+        m = r.search(string)
+        s = re.sub(r, '', string)
+        return s
