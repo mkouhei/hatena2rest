@@ -236,8 +236,9 @@ class HtnParser(object):
             string: convert target string.
         """
         footnotes = ''
-        table = []
         table_data = []
+        table = []
+        tables = []
         merge_string = ''
         if string:
             for s in string.split('\n'):
@@ -308,16 +309,19 @@ class HtnParser(object):
                     # table
                     r, m = self.regex_search('^\|(.+?)\|$', s)
                     if m:
-                        # table start
-                        self.table_flag = True
-                        raw_data = m.groups()[0].split('|')
-                        table_data.append(raw_data)
+                        raw_data = (m.group(0), m.groups()[0].split('|'))
+                        if self.table_flag:
+                            pass
+                        else:
+                            # table start
+                            self.table_flag = True
+                        table.append(raw_data)
                     else:
-                        if table_data:
+                        if self.table_flag:
                             # table close
+                            tables.append(table)
+                            table = []
                             self.table_flag = False
-                            table = table_data
-                            table_data = []
 
                     # remove hatena internal link
                     r, m = self.regex_search('(\[\[|\]\])', s)
@@ -325,8 +329,16 @@ class HtnParser(object):
                         s = r.sub('', s)
 
                 merge_string += s + '\n'
-            print(table)
+
+            # replace table
+            print(len(tables))
+            #merge_string = merge_string.replace(table_i[0], table_i[1][0])
+
             return merge_string + '\n' + footnotes
+
+    def table_column_width(self, tables):
+        for raw_table in tables:
+            print(raw_table)
 
     def hyperlink(self, string):
         """Convert hyperlink.
