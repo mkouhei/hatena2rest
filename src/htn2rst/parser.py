@@ -1,19 +1,30 @@
 # -*- coding: utf-8 -*-
 """
-    Copyright (C) 2012 Kouhei Maeda <mkouhei@palmtb.net>
+Provides classes for parsing exported data of Hatena diary.
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+This module has two classes.
+One is support for Movable Type format,
+the other is support XML a.k.a. Hatena Diary format.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+Developed for MovableType format, but it has many bugs of convering
+hyperlink and footnote and more. Then rewriten for XML format against
+squashing these bugs. So recommend using for XML format.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+-------------------------------------------------------------------------------
+Copyright (C) 2012 Kouhei Maeda <mkouhei@palmtb.net>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import re
@@ -22,10 +33,15 @@ from HTMLParser import HTMLParser
 import xml.etree.ElementTree
 
 
-# Movable Type format
 class MtParser(HTMLParser):
+    """
+    For Movable Type format.
+    But not developped now. not recomment to use this.
+    """
 
     def __init__(self):
+        """Initialize some parameters."""
+
         HTMLParser.__init__(self)
         self.text = ''
         self.temp = ''
@@ -37,6 +53,8 @@ class MtParser(HTMLParser):
         self.img_alt = ''
 
     def handle_starttag(self, tag, attrs):
+        """Set flag when detecting HTML start tags."""
+
         attrs = dict(attrs)
         if tag == 'style':
             self.flag = 1
@@ -66,6 +84,14 @@ class MtParser(HTMLParser):
                 self.img_alt = attrs.get('alt')
 
     def handle_data(self, data):
+        """
+        Convert html text to rest format data.
+
+        Argument:
+
+            data: a line of string for MT format text data.
+        """
+
         if self.flag == 1:
             data = ''
         elif self.flag == 'lv2':
@@ -97,6 +123,7 @@ class MtParser(HTMLParser):
             self.text += data
 
     def handle_endtag(self, tag):
+        """Clear flags when detecting HTML close tags."""
         if (tag == 'h4' or tag == 'h5' or tag == 'p'
             or tag == 'span' or tag == 'li'):
             self.flag = ''
@@ -105,18 +132,31 @@ class MtParser(HTMLParser):
 
 
 class HtnParser(object):
-    """ Hatena specify XML format"""
+    """Hatena specify XML format."""
 
     def __init__(self, file):
+        """Read exported XML file, and initialize parameters.
+
+        Argument:
+
+            file: exported file
+        """
         with open(file) as f:
             self.xmlobj = xml.etree.ElementTree.ElementTree(file=f)
             self.code_flag = False
+            self.table_flag = False
             self.list_lv = 0
 
     def list_days(self):
         return self.xmlobj.getroot().findall('day')
 
     def get_day_content(self, dayobj):
+        """Get element of day, and process conversion
+
+        Argument:
+
+            dayobj: day element.
+        """
         date = dayobj.get('date')
         bodies = dayobj.find('body')
         comments = dayobj.find('comments')
@@ -124,32 +164,45 @@ class HtnParser(object):
         self.process_bodies(bodies)
 
         if comments is not None:
-            self.process_comments(comments)
+            self.handle_comments(comments)
 
-    """ body starting is 1, not also 0"""
     def process_bodies(self, bodies):
+        """Separate data why body element has multi entry of diary.
 
-        """ remove comment out"""
+        Starting is 1, not also 0.
+
+        Argument:
+
+            bodies: text string of body element from exported XML data.
+        """
+
+        # remove multiple lines comment.
         prog = re.compile('\n\<!--(.*\n)*--\>')
+        bodies_ = re.sub(prog, '', bodies.text)
 
-        """split multi entries per day,
-        but except '*) in line head at code-block'
+        """Separate text of multi entries of day excepting below cases;
+
+        shell script switch default: \n\*(?!\))
+        section, subsection: \n\*(?!\*)
+        listing of reST: \n\*(?!\ )
+        continuous line feed: \n(?!\n)
+        crontab format: \n\*(?!/\d?\ \*)
         """
         prog2 = re.compile('\n\*(?!\)|\*|\ |\n|/\d?\ \*)')
-
-        bodies_ = re.sub(prog, '', bodies.text)
         entries = prog2.split(bodies_)
 
-        [self.process_body(body) for body in entries if body]
+        [self.handle_body(body) for body in entries if body]
 
-    def process_body(self, body):
-        """processing body"""
+    def handle_body(self, body):
+        """Handle body.
 
+        Argument:
+
+            body: text string of one blog entry.
+        """
         if body:
-            timestamp = self.get_timestamp(body)
-
-            title = self.get_title(body)
-            categories = self.get_categories(body)
+            timestamp, categories, title = self.get_metadata(
+                body.split('\n', 1)[0])
             entry_body = self.get_entry_body(body)
             s = self.htn2rest(entry_body)
 
@@ -159,33 +212,38 @@ class HtnParser(object):
             print("body: %s" % s)
 
     def regex_search(self, pattern, string):
+        """Prepare compilation of regex.
+
+        Arguments:
+
+            pattern: regex pattern
+            string: processing target string
+
+        return:
+
+            r: compiled regex object
+            m: searching result object
+        """
         r = re.compile(pattern, flags=re.U)
         m = r.search(string)
         return r, m
 
     def htn2rest(self, string):
-        """Daily body text to rest format."""
+        """Convert body text of day entry to rest format.
 
-        footnote = ''
+        Argument:
+
+            string: convert target string.
+        """
+        footnotes = ''
+        table = []
+        table_data = []
         merge_string = ''
         if string:
             for s in string.split('\n'):
 
-                """hyperlink conversion
-
-                hatena [url:title:titlestring]
-                reSt `titlestring <url>`_
-                """
-                r = re.compile(
-                    '\[((http|https)://[a-zA-Z0-9\-_/\.%#&\?]*):title=(.*)\]',
-                    flags=re.U)
-                m = r.search(s)
-                if m:
-                    print(m.groups())
-                    print("uri: %s" % m.group(1))
-                    print("explanation: %s" % m.group(3))
-                    s = r.sub(' `' + m.group(3) +
-                              ' <' + m.group(1) + '>`_ ', s)
+                # hyperlink
+                s = self.hyperlink(s)
 
                 # hatena fotolife
                 r, m = self.regex_search(
@@ -216,12 +274,12 @@ class HtnParser(object):
                         else:
                             s = r.sub('\n.. code-block:: sh\n', s)
 
-                    """list
-                    3 is --- or +++
-                    2 is -- or ++
-                    1 is - or +
-                    """
                     for i in range(1, 4)[::-1]:
+                        """list lv is indent depth
+                        3 is --- or +++
+                        2 is -- or ++
+                        1 is - or +
+                        """
                         r, m = self.regex_search(
                             '(^(-{%d}))|(^(\+{%d}))' % (i, i), s)
                         if m:
@@ -234,8 +292,8 @@ class HtnParser(object):
                                 self.list_lv = i
                             s = r.sub(repl, s)
 
-                    # 2:section, 3:subsection
                     for i in range(2, 4)[::-1]:
+                        """2:section, 3:subsection"""
                         sep = '-' if i == 2 else '^'
                         r, m = self.regex_search('^(\*){%d}(.*)' % i, s)
                         if m:
@@ -243,111 +301,191 @@ class HtnParser(object):
                                       + sep * len(m.group(2)) * i + '\n', s)
 
                     # footnote
-                    r, m = self.regex_search('\(\((.*)\)\)', s)
-                    if m:
-                        s = r.sub(' [#]_ ', s)
-                        footnote += '.. [#] ' + m.group(1) + '\n'
+                    s, footnotes_ = self.footnote(s)
+                    if footnotes_:
+                        footnotes += footnotes_ + '\n'
 
-                    '''
-                    r = re.compile(
-                    '\[((http|https)://[a-zA-Z0-9\-_/\.%#&\?]*):title=(.*)\]',
-                    flags=re.U)
-                    m = r.search(footnote)
+                    # table
+                    r, m = self.regex_search('^\|(.+?)\|$', s)
                     if m:
-                        print(m.groups())
-                        print("uri: %s" % m.group(1))
-                        print("explanation: %s" % m.group(3))
-                        footnote = r.sub(' `' + m.group(3) +
-                                   ' <' + m.group(1) + '>`_ ', footnote)
-                                   '''
+                        # table start
+                        self.table_flag = True
+                        raw_data = m.groups()[0].split('|')
+                        table_data.append(raw_data)
+                    else:
+                        if table_data:
+                            # table close
+                            self.table_flag = False
+                            table = table_data
+                            table_data = []
 
-                    # remove hatena syntax
+                    # remove hatena internal link
                     r, m = self.regex_search('(\[\[|\]\])', s)
                     if m:
                         s = r.sub('', s)
 
                 merge_string += s + '\n'
-            return merge_string + '\n' + footnote
+            print(table)
+            return merge_string + '\n' + footnotes
 
-    def hyperlink(string):
+    def hyperlink(self, string):
+        """Convert hyperlink.
+
+        Argument:
+
+            string: text string of blog entry.
+
+        convert is below
+        from: hatena [url:title:titlestring]
+        to: reSt `titlestring <url>`_
+        """
+        string_ = string
         prog = re.compile(
-            '\[(http?.://[\w\-_/\.~%#&\?]*):title=(?!<\[http?://.*)(.*)\]',
-            flags=re.U)
+            '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+        for i in prog.findall(string):
+            string_ = string_.replace(i[0], ' `' + i[3] + ' <' + i[1] + '>`_ ')
+        return string_
+
+    def footnote(self, string):
+        """Convert footnote.
+
+        Argument:
+
+            string: text string of blog entry.
+
+        convert is below
+        from: hatena: ((string))
+        to: reST: inline is [#]_, footnote is .. [#] string
+        """
+        string_ = string
+        footnotes = ''
+        prog = re.compile('(\(\((.+?)\)\))', flags=re.U)
+
+        for i in prog.findall(string):
+            string_ = string_.replace(i[0], ' [#]_ ')
+            if len(prog.findall(string)) > 1:
+                footnotes += '\n.. [#] ' + i[1]
+            else:
+                footnotes += '.. [#] ' + i[1]
+        return string_, footnotes
+
+    def table(self, string):
+        """Convert table.
+
+        Argument:
+
+            string: text string of blog entry.
+        """
+        prog = re.compile('^\|(.+?)\|$', flags=re.U)
+        raw_data = prog.findall(string)[0].split('|')
 
     def get_metadata(self, string):
+        """Get metadata of entry.
+
+        Argument:
+
+            string: title line string of hatena blog entry.
+        """
         if string:
-            prog = re.compile('\*(\d*)\*(\[.*\])*(\[http?://.*\])(.*)')
-            prog2 = re.compile('\*(\d*)\*(\[.*\])*(.*)')
+            '''pattern a)
+
+            timestamp: (\d*)
+            category: (\[.*\])*
+            title with uri: (\[http?://.*\])(.*)
+            '''
+            prog = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
+                              flags=re.U)
+
+            '''pattern b)
+
+            timestamp: (\d*)
+            category: (\[.*\])*
+            title: (.*)
+            '''
+            prog2 = re.compile('\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
 
             if prog.search(string):
-                timestamp, categories, title_, title2_ =\
+                # pattern a)
+                timestamp, categories, linked_title, string_title =\
                     prog.search(string).groups()
-            else:
+                title = self.hyperlink(linked_title) + string_title
+            elif prog2.search(string):
+                # pattern b)
                 timestamp, categories, title = prog2.search(string).groups()
+            return (self.unix2ctime(timestamp),
+                    self.get_categories(categories), title)
 
-    def get_timestamp(self, string):
-        """get timestamp of entry"""
-        if string:
+    def unix2ctime(self, unixtime):
+        """Get timestamp of entry.
+
+        Argument:
+
+            unixtime: unixtime string
+        """
+        if unixtime:
             prog = re.compile('\s+')
-            timestamp = string.split('*')[0]
-            date = prog.split(time.ctime(int(timestamp)))[3]
-            return date
+            timestamp = prog.split(time.ctime(int(unixtime)))[3]
+            return timestamp
 
-    def get_title(self, body):
-        """get title of entry"""
-        prog = re.compile('\n', flags=re.U)
-        prog2 = re.compile('^\d*\*(\[.*\](\[http.*\]))*', flags=re.U)
+    def get_categories(self, string):
+        """Get category of entry.
 
-        body_ = prog.split(body)[0]
+        Argument:
 
-        for i, v in enumerate(prog2.split(body_)):
-            if i == 2:
-                title = v
-                return title
+           string: categories of hatena diary syntax format as [a][b][c]
 
-    def get_categories(self, body):
-        """get category of entry"""
-        categories = []
-        prog = re.compile('^\d*\*(\[.*\])*(?!\[http.*\])', flags=re.U)
-        prog2 = re.compile('^\[|\]$', flags=re.U)
-        prog3 = re.compile('\]\[', flags=re.U)
+        Return:
 
-        # remove [http://--/:title=hoge] from categories.
-
-        text_ = prog.split(body, re.U)
-        for i, v in enumerate(text_):
-            if i == 1:
-                # When exist category
-                if v:
-                    text2_ = prog2.sub('', v)
-                    categories = prog3.split(text2_)
-                    return categories
+           list of categories.
+        """
+        if string:
+            prog = re.compile('\[(.+?)\]', flags=re.U)
+            categories = prog.findall(string)
+            return categories
 
     def get_entry_body(self, body):
-        """get body of entry"""
+        """Get body of entry.
+
+        Argument:
+
+            body: blog entris text of body element.
+        """
         if body.find('\n'):
             entry_body = body.split('\n', 1)[1]
             return entry_body
 
-    def process_comments(self, comments):
-        """processing multiple comments"""
-        print("comments:\n" + "-" * 10)
-        [self.process_comment(comment) for comment in comments]
+    def handle_comments(self, comments):
+        """Handle multiple comment within comments element.
 
-    def process_comment(self, comment):
-        """print one comment"""
+        Argument:
+
+            comments: comments element.
+        """
+        print("comments:\n" + "-" * 10)
+        [self.handle_comment(comment) for comment in comments]
+
+    def handle_comment(self, comment):
+        """Handles comment element.
+
+        Argument:
+
+            comment: comment element.
+        """
         username = comment.find('username').text
         timestamp = comment.find('timestamp').text
         comment = comment.find('body').text
 
-        '''
-        formatting reST format of comment
-        '''
         print("username: %s" % username)
         print("timestamp: %s" % timestamp)
         print("comment: %s" % self.comment2rest(comment))
 
     def comment2rest(self, string):
+        """Convert comment text to reST format.
+
+        Argument:
+
+            string: comment text.
+        """
         # remove <br>
         r = re.compile('<br?>', flags=re.U)
         m = r.search(string)
