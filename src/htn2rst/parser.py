@@ -540,7 +540,25 @@ class HatenaXMLParser(object):
         r, m = self.regex_search('(\[\[|\]\])', str_line)
         if m:
             str_line = r.sub('', str_line)
-        return str_line
+            return str_line
+
+        def xmlparse(obj):
+            xmlobj = xml.etree.ElementTree.ElementTree(element=obj)
+
+            if isinstance(xmlobj.getroot(), unicode):
+                print(xmlobj.getroot())
+                return xmlobj.getroot()
+            else:
+                print(type(xmlobj.getroot()))
+
+        prog = re.compile('(<div.+?>(.+?)</div>)')
+        m = prog.search(str_line)
+        if m:
+            for i in m.groups():
+                str_ = xmlparse(i)
+
+            #str_line = r.sub('', str_line)
+            return str_line
 
     def extract_categories(self, str_categories):
         """Get category of entry.
