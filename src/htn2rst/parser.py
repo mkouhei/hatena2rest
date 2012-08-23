@@ -550,6 +550,9 @@ class HatenaXMLParser(object):
 
     def parse_blog_parts(self, string):
 
+        ref_char = re.compile('\&(?!amp;)')
+        string = ref_char.sub('&amp;', string)
+
         def parse_amazlet(xmltree):
             anchor_element = xmltree.find('div').find('a')
             img_element = anchor_element.find('img')
