@@ -541,18 +541,37 @@ class HatenaXMLParser(object):
         if m:
             str_line = r.sub('', str_line)
 
-        def xmlparse(obj):
-            xmlobj = xml.etree.ElementTree.fromstring(obj.encode('utf-8'))
-            print(xmlobj.get('div'))
-            return xmlobj.get('div')
-
-        prog = re.compile('((<.+?>(.+?)</.+?>)$)', flags=re.U)
-        m = prog.search(str_line)
+        html_tags = re.compile('((<.+?>(.+?)</.+?>)$)', flags=re.U)
+        m = html_tags.search(str_line)
         if m:
-            str_ = xmlparse(m.group(0))
-
-            #str_line = r.sub('', str_line)
+            repl_str = self.parse_blog_parts(m.group(0).encode('utf-8'))
+            str_line = html_tags.sub(repl_str, str_line)
         return str_line
+
+    def parse_blog_parts(self, string):
+
+        def parse_amazlet(xmltree):
+            anchor_element = xmltree.find('div').find('a')
+            img_element = anchor_element.find('img')
+
+            uri = anchor_element.get('href')
+            img_src = img_element.get('src')
+            img_alt = img_element.get('alt')
+
+            repl_amazon = ('.. figure:: ' + img_src + '\n   ' +
+                           ':alt: ' + img_alt + '\n\n   `' + img_alt +
+                           ' <' + uri + '>`_\n')
+            return repl_amazon
+
+        print('debug###' + string)
+        xmltree = xml.etree.ElementTree.fromstring(string)
+        #print('## items ## ' + str(xmltree.items()))
+        print('## keys  ## ' + str(xmltree.keys()))
+        print('## get   ## ' + str(xmltree.get('class')))
+        print('## child ## ' + str(xmltree.getchildren()))
+        if xmltree.get('class') == 'amazlet-box':
+            repl_amazon = parse_amazlet(xmltree)
+            return repl_amazon
 
     def extract_categories(self, str_categories):
         """Get category of entry.
