@@ -436,7 +436,7 @@ class HatenaXMLParser(object):
             r, m = self.regex_search('^(\*){%d}(.*)' % i, str_line)
             if m:
                 str_line = r.sub(
-                    m.group(2) + '\n'
+                    '\n' + m.group(2) + '\n'
                     + sep * self.length_str(m.group(2)) + '\n', str_line)
 
         return str_line
@@ -541,7 +541,72 @@ class HatenaXMLParser(object):
         if m:
             str_line = r.sub('', str_line)
 
-        html_tags = re.compile('((<.+?>(.+?)</.+?>)$)', flags=re.U)
+        r, m = self.regex_search('(<span .+?>(.+?)</span>)', str_line)
+        if m:
+            str_line = r.sub(m.group(2), str_line)
+
+        r, m = self.regex_search('(<del .+?>(.+?)</del>)', str_line)
+        if m:
+            str_line = r.sub('', str_line)
+
+        # for google maps
+        pattern_google_maps, m = self.regex_search(
+            '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
+            str_line)
+        if m:
+            str_line = pattern_google_maps.sub(
+                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+
+        # for image
+        pattern_amazon, m = self.regex_search('amazlet', str_line)
+        if m:
+            print m
+        else:
+            pattern_image, m = self.regex_search(
+            '(<a href="(.+?)" .+?><img src="(.+?)".*?/?></.+?>)', str_line)
+            if m:
+                str_line = pattern_image.sub(
+                    '\n.. image:: ' + m.group(3) + '\n   :target: '
+                    + m.group(2) + '\n\n', str_line)
+
+        # for object
+        pattern_youtube, m = self.regex_search(
+            '(<object .+?>(.*?)</.+?>)', str_line)
+        if m:
+            str_line = pattern_youtube.sub(
+                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+
+        # for tweet
+        pattern_comment, m = self.regex_search(
+            '((<!-- (.+?) -->) (<.+?>(.+?)</.+?> )(<!-- (.+) -->))', str_line)
+        if m:
+            str_tmp = str_line.replace(m.group(2), '')
+            str_tmp = str_tmp.replace(m.group(6), '')
+            pattern_style, m2 = self.regex_search(
+                ' <style .+?>(.+?)</style> ', str_tmp)
+            if m2:
+                str_tmp = str_tmp.replace(m2.group(0), '')
+                str_tmp = str_tmp.replace('><', '>\n<')
+                str_tmp = str_tmp.replace('> <', '>\n<')
+                str_tmp = str_tmp.replace('</span>\n', '')
+                pattern_tweet = re.compile(
+                    '((<.+?>(.+?)</.+?>)(.+?)(<.+?>(.+?)</.+?>))')
+                m3 = pattern_tweet.search(str_tmp)
+                if m3:
+                    r = re.compile('<a.+?>')
+                    tweet_msg = (r.sub('', m3.group(3)) +
+                                 r.sub('', m3.group(4))
+                                 + r.sub('', m3.group(5))).replace('</a>', '')
+
+                uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
+                print tweet_msg
+                print uri
+                repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+                str_line = pattern_comment.sub(repl_str, str_line)
+                return str_line
+
+        # for amazlet
+        html_tags = re.compile('(^(<.+?>(.+?)</.+?>)$)', flags=re.U)
         m = html_tags.search(str_line)
         if m:
             repl_str = self.parse_blog_parts(m.group(0).encode('utf-8'))
@@ -550,8 +615,11 @@ class HatenaXMLParser(object):
 
     def parse_blog_parts(self, string):
 
-        ref_char = re.compile('\&(?!amp;)')
-        string = ref_char.sub('&amp;', string)
+        ex_ref_char = re.compile('\&(?!amp;)')
+        string = ex_ref_char.sub('&amp;', string)
+
+        string = string.replace('alt="no image"', '')
+        #string = string.replace('><', '>\n<')
 
         def parse_amazlet(xmltree):
             anchor_element = xmltree.find('div').find('a')
@@ -561,20 +629,28 @@ class HatenaXMLParser(object):
             img_src = img_element.get('src')
             img_alt = img_element.get('alt')
 
-            repl_amazon = ('.. figure:: ' + img_src + '\n   ' +
+            repl_amazon = ('\n.. figure:: ' + img_src + '\n   ' +
                            ':alt: ' + img_alt + '\n\n   `' + img_alt +
                            ' <' + uri + '>`_\n')
             return repl_amazon
 
-        print('debug###' + string)
+        def parse_twitter(xmltree):
+            uri = [i.get('href') for i in xmltree.find('p')
+                   if i.get('title')][0]
+            return uri
+
+        #print('debug###' + string)
         xmltree = xml.etree.ElementTree.fromstring(string)
-        #print('## items ## ' + str(xmltree.items()))
+        print('## items ## ' + str(xmltree.items()))
         print('## keys  ## ' + str(xmltree.keys()))
         print('## get   ## ' + str(xmltree.get('class')))
         print('## child ## ' + str(xmltree.getchildren()))
         if xmltree.get('class') == 'amazlet-box':
             repl_amazon = parse_amazlet(xmltree)
             return repl_amazon
+        if xmltree.get('class').find('bbpBox') == 0:
+            repl_twitter = parse_twitter(xmltree)
+            return repl_twitter
 
     def extract_categories(self, str_categories):
         """Get category of entry.
