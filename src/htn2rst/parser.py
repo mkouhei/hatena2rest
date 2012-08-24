@@ -619,7 +619,6 @@ class HatenaXMLParser(object):
         string = ex_ref_char.sub('&amp;', string)
 
         string = string.replace('alt="no image"', '')
-        #string = string.replace('><', '>\n<')
 
         def parse_amazlet(xmltree):
             anchor_element = xmltree.find('div').find('a')
@@ -639,18 +638,24 @@ class HatenaXMLParser(object):
                    if i.get('title')][0]
             return uri
 
-        #print('debug###' + string)
+        def parse_slideshare(xmltree):
+            uri = xmltree.find('strong').find('a').get('href')
+            title = xmltree.find('strong').find('a').get('title')
+            repl_slideshare = '\n`' + title + ' <' + uri + '>`_\n'
+            return repl_slideshare
+
         xmltree = xml.etree.ElementTree.fromstring(string)
-        print('## items ## ' + str(xmltree.items()))
-        print('## keys  ## ' + str(xmltree.keys()))
-        print('## get   ## ' + str(xmltree.get('class')))
-        print('## child ## ' + str(xmltree.getchildren()))
+
         if xmltree.get('class') == 'amazlet-box':
             repl_amazon = parse_amazlet(xmltree)
             return repl_amazon
-        if xmltree.get('class').find('bbpBox') == 0:
-            repl_twitter = parse_twitter(xmltree)
-            return repl_twitter
+        if xmltree.get('class'):
+            if xmltree.get('class').find('bbpBox') == 0:
+                repl_twitter = parse_twitter(xmltree)
+                return repl_twitter
+        if xmltree.get('id').find('__ss_') == 0:
+            repl_slideshare = parse_slideshare(xmltree)
+            return repl_slideshare
 
     def extract_categories(self, str_categories):
         """Get category of entry.
