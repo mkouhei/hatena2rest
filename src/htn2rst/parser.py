@@ -28,10 +28,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
 import re
-import time
 from HTMLParser import HTMLParser
 import xml.etree.ElementTree
-import unicodedata
+import utils
 
 
 class MtParser(HTMLParser):
@@ -149,6 +148,9 @@ class HatenaXMLParser(object):
             self.list_lv = 0
 
     def list_day_element(self):
+        """Day element is daily unit of Hatena diary exported data,
+        it has one blog entry or two or more entries.
+        So handle per day element."""
         return self.xmlobj.getroot().findall('day')
 
     def handle_entries_per_day(self, day_element):
@@ -215,7 +217,7 @@ class HatenaXMLParser(object):
             timestamp, categories, title = self.get_metadata(
                 body_text.split('\n', 1)[0])
             entry_body = self.extract_entry_body(body_text)
-            rested_body = self.htn2rest(entry_body)
+            rested_body = self.hatena2rest(entry_body)
 
             print("title: %s" % title)
             print("timestamp: %s" % timestamp)
@@ -232,14 +234,14 @@ class HatenaXMLParser(object):
 
         return:
 
-            r: compiled regex object
-            m: searching result object
+            pat_regex: compiled regex object
+            match_obj: searching result object
         """
-        r = re.compile(pattern, flags=re.U)
-        m = r.search(string)
-        return r, m
+        pat_regex = re.compile(pattern, flags=re.U)
+        match_obj = pat_regex.search(string)
+        return pat_regex, match_obj
 
-    def htn2rest(self, str_body):
+    def hatena2rest(self, str_body):
         """Convert body text of day entry to rest format.
 
         Argument:
@@ -252,39 +254,56 @@ class HatenaXMLParser(object):
         tables = []
         merge_string = ''
 
+        def parse_end_codeblock(string_line):
+            """Parse end of codeblock.
+
+            Argument:
+
+                string_line: parsing target string.
+            """
+            pat_code_close, match_obj = self.regex_search(
+                '^\|\|<|^\|<$', string_line)
+            if match_obj:
+                str_line = pat_code_close.sub('\n', string_line)
+                # code block closing
+                self.code_flag = False
+            else:
+                string_line = re.sub('^', '   ', string_line)
+            return string_line
+
+        def parse_start_codeblock(string_line):
+            pat_code_open, match_obj = self.regex_search(
+                '>\|([a-zA-Z0-9]*)\|$|>\|()$', string_line)
+            if match_obj:
+                # code block opening
+                self.code_flag = True
+                if match_obj.group(1):
+                    string_line = pat_code_open.sub(
+                        '\n.. code-block:: ' +
+                        match_obj.group(1) + '\n',
+                        string_line)
+                else:
+                    string_line = pat_code_open.sub(
+                        '\n.. code-block:: sh\n', string_line)
+            return string_line
+
         if str_body:
+            # str_line exclude '\n'
             for str_line in str_body.split('\n'):
-                # str_line exclude '\n'
 
                 # convert hyperlink
-                str_line = self.hyperlink(str_line)
+                str_line = self.convert_hyperlink(str_line)
 
                 # convert image from hatena fotolife
                 str_line = self.fotolife2rest(str_line)
 
                 # handle line inside code block
                 if self.code_flag:
-                    r, m = self.regex_search('^\|\|<|^\|<$', str_line)
-                    if m:
-                        str_line = r.sub('\n', str_line)
-                        # code block closing
-                        self.code_flag = False
-                    else:
-                        str_line = re.sub('^', '   ', str_line)
+                    str_line = parse_end_codeblock(str_line)
 
                 # handle line outside code block
                 else:
-                    r, m = self.regex_search('>\|([a-zA-Z0-9]*)\|$|>\|()$',
-                                             str_line)
-                    if m:
-                        # code block opening
-                        self.code_flag = True
-                        if m.group(1):
-                            str_line = r.sub('\n.. code-block:: '
-                                             + m.group(1) + '\n', str_line)
-                        else:
-                            str_line = r.sub('\n.. code-block:: sh\n',
-                                             str_line)
+                    str_line = parse_start_codeblock(str_line)
 
                     # listing
                     str_line = self.listing2rest(str_line)
@@ -298,12 +317,12 @@ class HatenaXMLParser(object):
                         footnotes += footnotes_ + '\n'
 
                     # extract table data
-                    r, m = self.regex_search('^\|(.+?)\|$', str_line)
-                    if m:
-                        row_data = (m.group(0), m.groups()[0].split('|'))
-                        if self.table_flag:
-                            pass
-                        else:
+                    pat_table, match_obj = self.regex_search(
+                        '^\|(.+?)\|$', str_line)
+                    if match_obj:
+                        row_data = (match_obj.group(0),
+                                    match_obj.groups()[0].split('|'))
+                        if not self.table_flag:
                             # table start
                             self.table_flag = True
                         table.append(row_data)
@@ -313,6 +332,7 @@ class HatenaXMLParser(object):
                             tables.append(table)
                             table = []
                             self.table_flag = False
+                    #tables = extract_tables(str_line, table, tables)
 
                     # remove hatena internal link
                     str_line = self.remove_hatena_internal_link(str_line)
@@ -325,17 +345,8 @@ class HatenaXMLParser(object):
             return merge_string + '\n' + footnotes
 
     def table2rest(self, tables, merge_string):
-        # replace table
-        for table in tables:
-            '''
-            tables is list; [table, table, ...]
-            table is list; [row, row]
-            '''
-            replace_line = ''
-            thead = ''
-            tbody = ''
-            columns_width = [0] * len(table[1][1])
 
+        def get_columns_width_list(table, columns_width):
             for row in table:
                 '''
                 row is tuple; (pattern, values)
@@ -343,44 +354,73 @@ class HatenaXMLParser(object):
                 row[1] is values list
                 '''
                 for i in range(len(row[1])):
-                    if columns_width[i] <= self.length_str(row[1][i]):
-                        columns_width[i] = self.length_str(row[1][i])
+                    if columns_width[i] <= utils.length_str(row[1][i]):
+                        columns_width[i] = utils.length_str(row[1][i])
                     else:
                         columns_width[i] = columns_width[i]
+                return columns_width
 
-            # columns_width has max values when this step
-
-            for row_i, row in enumerate(table):
-                row_str = ''
-                for i in range(len(row[1])):
-                    # numbers of values
+        def convert_row(row):
+            row_str = ''
+            thead = ''
+            tbody = ''
+            for i in range(len(row[1])):
+                # numbers of values
                     if i < len(row[1]) - 1:
                         row_str += ("| " + row[1][i] +
-                                 " " * (columns_width[i] -
-                                        self.length_str(row[1][i])) + ' ')
+                                    " " * (columns_width[i] -
+                                           utils.length_str(row[1][i])) + ' ')
                         if row_i == 0:
                             thead += ("+" + "=" * (columns_width[i] + 2))
                             tbody += ("+" + "-" * (columns_width[i] + 2))
                     else:
                         row_str += ("| " + row[1][i] +
-                                 " " * (columns_width[i]
-                                        - self.length_str(row[1][i])) + ' |\n')
+                                    " " * (columns_width[i]
+                                           - utils.length_str(row[1][i]))
+                                    + ' |\n')
 
                         if row_i == 0:
                             thead += ("+" + "=" * (columns_width[i] + 2) + '+')
                             tbody += ("+" + "-" * (columns_width[i] + 2) + '+')
+                    return (row_str, thead, tbody)
 
-                merge_row_str = ''
-                prog = re.compile('\| \*')
-                if prog.search(row_str):
-                    row_str = prog.sub('|  ', row_str)
-                    merge_row_str += thead + '\n' + row_str + thead
-                else:
-                    merge_row_str += row_str + tbody
+        def merge_row_string(row_str, thead, tbody):
+            merge_row_str = ''
+            prog = re.compile('\| \*')
+            if prog.search(row_str):
+                row_str = prog.sub('|  ', row_str)
+                merge_row_str += thead + '\n' + row_str + thead
+            else:
+                merge_row_str += row_str + tbody
+            return merge_row_str
+
+        # replace table
+        for table in tables:
+            '''
+            tables is list; [table, table, ...]
+            table is list; [row, row]
+            '''
+            replace_line = ''
+            columns_width = [0] * len(table[1][1])
+
+            # get columns width
+            columns_width = get_columns_width_list(table, columns_width)
+
+            # columns_width has max values when this step
+
+            for row_i, row in enumerate(table):
+
+                # get row string, row head border, row bottom border
+                row_str, thead, tbody = convert_row(row)
+
+                # merge row string with row
+                merge_row_str = merge_row_string(row_str, thead, tbody)
+
+                # merge string with row string
                 merge_string = merge_string.replace(row[0], merge_row_str)
         return merge_string
 
-    def hyperlink(self, str_line):
+    def convert_hyperlink(self, str_line):
         """Convert hyperlink.
 
         Argument:
@@ -437,7 +477,7 @@ class HatenaXMLParser(object):
             if m:
                 str_line = r.sub(
                     '\n' + m.group(2) + '\n'
-                    + sep * self.length_str(m.group(2)) + '\n', str_line)
+                    + sep * utils.length_str(m.group(2)) + '\n', str_line)
 
         return str_line
 
@@ -505,36 +545,15 @@ class HatenaXMLParser(object):
                 timestamp, str_categories, linked_title, str_title = (
                     prog.search(str_title_line).groups())
 
-                title = self.hyperlink(linked_title) + str_title
+                title = self.convert_hyperlink(linked_title) + str_title
 
             elif prog2.search(str_title_line):
                 # pattern b)
                 timestamp, str_categories, title = (
                     prog2.search(str_title_line).groups())
 
-            return (self.unix2ctime(timestamp, date_enabled=False),
+            return (utils.unix2ctime(timestamp, date_enabled=False),
                     self.extract_categories(str_categories), title)
-
-    def unix2ctime(self, unixtime, date_enabled=True):
-        """Get timestamp of entry.
-
-        Argument:
-
-            unixtime: unixtime string
-            date_enabled: 'Mon Apr  2 01:00:44 2012' when True
-                          (default False '010044')
-        """
-        if unixtime:
-            if date_enabled:
-                # for comment
-                timestamp = time.ctime(int(unixtime))
-            else:
-                # for blog entry.
-                # reST file name becomes this value + '.rst'.
-                prog = re.compile('\s+')
-                t = prog.split(time.ctime(int(unixtime)))[3]
-                timestamp = t.replace(':', '')
-            return timestamp
 
     def remove_hatena_internal_link(self, str_line):
         r, m = self.regex_search('(\[\[|\]\])', str_line)
@@ -707,7 +726,7 @@ class HatenaXMLParser(object):
         print("username: %s" % username)
 
         unixtime = comment_element.find('timestamp').text
-        timestamp = self.unix2ctime(unixtime)
+        timestamp = utils.unix2ctime(unixtime)
         print("timestamp: %s" % timestamp)
 
         comment = comment_element.find('body').text
@@ -726,15 +745,3 @@ class HatenaXMLParser(object):
         # m = prog.search(string)
         converted_comment = prog.sub('', comment_text)
         return converted_comment
-
-    def length_str(self, str_line):
-        fwa = ['F', 'W', 'A']
-        hnna = ['H', 'N', 'Na']
-
-        zenkaku = len([unicodedata.east_asian_width(c)
-                       for c in str_line
-                       if unicodedata.east_asian_width(c) in fwa])
-        hankaku = len([unicodedata.east_asian_width(c)
-                       for c in str_line
-                       if unicodedata.east_asian_width(c) in hnna])
-        return (zenkaku * 2 + hankaku)
