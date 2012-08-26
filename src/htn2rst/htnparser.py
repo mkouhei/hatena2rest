@@ -165,14 +165,17 @@ class HatenaXMLParser(object):
         comments_element = day_element.find('comments')
 
         # make directory when it is not existed.
-        print('dirpath:' + date.replace('-', '/') + '/')
+        dirpath = (date.replace('-', '/') + '/')
 
         # write entry to reST file.
-        self.handle_body_elements(body_element)
+        bodies = self.handle_body_elements(body_element)
 
+        comments = None
         # write comments to reST file.
         if comments_element is not None:
-            self.handle_comments_element(comments_element)
+            comments = self.handle_comments_element(comments_element)
+
+        return dirpath, bodies, comments
 
     def handle_body_elements(self, body_element):
         """Separate data why body element has multi entry of diary.
@@ -202,9 +205,10 @@ class HatenaXMLParser(object):
 
         # main loop
         # TODO: move to main() later.
-        [self.handle_body(body_text)
-         for body_text in list_entries
-         if body_text]
+        bodies = [self.handle_body(body_text)
+                  for body_text in list_entries
+                  if body_text]
+        return bodies
 
     def handle_body(self, body_text):
         """Handle body.
@@ -219,10 +223,7 @@ class HatenaXMLParser(object):
             entry_body = self.extract_entry_body(body_text)
             rested_body = self.hatena2rest(entry_body)
 
-            print("title: %s" % title)
-            print("timestamp: %s" % timestamp)
-            print("categories: %s" % categories)
-            print("body: %s" % rested_body)
+            return title, timestamp, categories, rested_body
 
     def regex_search(self, pattern, string):
         """Prepare compilation of regex.
@@ -263,7 +264,7 @@ class HatenaXMLParser(object):
             pat_code_close, match_obj = self.regex_search(
                 '^\|\|<|^\|<$', string_line)
             if match_obj:
-                str_line = pat_code_close.sub('\n', string_line)
+                string_line = pat_code_close.sub('\n', string_line)
                 # code block closing
                 self.code_flag = False
             else:
@@ -634,8 +635,6 @@ class HatenaXMLParser(object):
                                  + r.sub('', m3.group(5))).replace('</a>', '')
 
                 uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
-                print tweet_msg
-                print uri
                 repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
                 str_line = pat_comment.sub(repl_str, str_line)
                 return str_line
@@ -726,9 +725,9 @@ class HatenaXMLParser(object):
 
             comments_element: comments element of XML.
         """
-        print("comments:\n" + "-" * 10)
-        [self.handle_comment_element(comment_element)
-         for comment_element in comments_element]
+        comments = [self.handle_comment_element(comment_element)
+                         for comment_element in comments_element]
+        return comments
 
     def handle_comment_element(self, comment_element):
         """Handles comment element.
@@ -737,16 +736,14 @@ class HatenaXMLParser(object):
 
             comment_element: comment element of XML.
         """
-
         username = comment_element.find('username').text
-        print("username: %s" % username)
 
         unixtime = comment_element.find('timestamp').text
         timestamp = utils.unix2ctime(unixtime)
-        print("timestamp: %s" % timestamp)
 
         comment = comment_element.find('body').text
-        print("comment: %s" % self.comment2rest(comment))
+
+        return username, timestamp, comment
 
     def comment2rest(self, comment_text):
         """Convert comment text to reST format.
