@@ -146,6 +146,7 @@ class HatenaXMLParser(object):
             self.code_flag = False
             self.table_flag = False
             self.list_lv = 0
+            self.ref_flag = False
 
     def list_day_element(self):
         """Day element is daily unit of Hatena diary exported data,
@@ -254,6 +255,26 @@ class HatenaXMLParser(object):
         tables = []
         merge_string = ''
 
+        def convert_start_ref(string_line):
+            pat_start_ref, match_obj = self.regex_search(
+                '^>((http|https)://(.+?))>$', string_line)
+            if match_obj:
+                self.ref_flag = True
+                string_line = pat_start_ref.sub(
+                    '\n' + match_obj.group(1) + ' ::\n\n',
+                    string_line)
+            return string_line
+
+        def convert_end_ref(string_line):
+            pat_end_ref, match_obj = self.regex_search(
+                '^<<', string_line)
+            if match_obj:
+                string_line = pat_end_ref.sub('\n\n', string_line)
+                self.ref_flag = False
+            else:
+                string_line = re.sub('^', '   ', string_line)
+            return string_line
+
         def parse_end_codeblock(string_line):
             """Parse end of codeblock.
 
@@ -278,14 +299,48 @@ class HatenaXMLParser(object):
                 # code block opening
                 self.code_flag = True
                 if match_obj.group(1):
+                    lexer_str = replace_lexer(match_obj.group(1))
                     string_line = pat_code_open.sub(
-                        '\n.. code-block:: ' +
-                        match_obj.group(1) + '\n',
+                        '\n.. code-block:: ' + lexer_str + '\n',
                         string_line)
                 else:
                     string_line = pat_code_open.sub(
                         '\n.. code-block:: sh\n', string_line)
             return string_line
+
+        def replace_lexer(key):
+            lexer = {
+                'conf': 'ini',
+                'erlang': 'ini',
+                'm4': 'ini',
+                'log': 'ini',
+                'lisp': 'ini',
+                'mail': 'ini',
+                'rcs': 'diff',
+                'dmesg': 'ini',
+                'strace': 'ini',
+                'fstab': 'ini',
+                'tree': 'ini',
+                'grub': 'ini',
+                'emacs': 'ini',
+                'telnet': 'ini',
+                'fetchmail': 'ini',
+                'dot': 'ini',
+                'git': 'ini',
+                'TeX': 'ini',
+                'Makefile': 'ini',
+                'sudoers': 'ini',
+                'crontab': 'ini',
+                'dosbatch': 'ini',
+                'sed': 'ini',
+                'cc': 'ini',
+                'mt': 'ini',
+                'thml': 'ini'
+                }
+            if lexer.get(key):
+                return lexer.get(key)
+            else:
+                return 'ini'
 
         def extract_tables(string_line, table, tables):
             pat_table, match_obj = self.regex_search(
@@ -333,6 +388,12 @@ class HatenaXMLParser(object):
                     str_line, footnotes_ = self.footnote2rest(str_line)
                     if footnotes_:
                         footnotes += footnotes_ + '\n'
+
+                    # convert refs
+                    if self.ref_flag:
+                        str_line = convert_end_ref(str_line)
+                    else:
+                        str_line = convert_start_ref(str_line)
 
                     # extract table data
                     table, tables = extract_tables(str_line, table, tables)
