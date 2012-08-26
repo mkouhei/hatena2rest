@@ -249,7 +249,6 @@ class HatenaXMLParser(object):
             string: convert target string.
         """
         footnotes = ''
-        table_data = []
         table = []
         tables = []
         merge_string = ''
@@ -287,6 +286,24 @@ class HatenaXMLParser(object):
                         '\n.. code-block:: sh\n', string_line)
             return string_line
 
+        def extract_tables(string_line, table, tables):
+            pat_table, match_obj = self.regex_search(
+                '^\|(.+?)\|$', string_line)
+            if match_obj:
+                row_data = (match_obj.group(0),
+                            match_obj.groups()[0].split('|'))
+                if not self.table_flag:
+                    # table start
+                    self.table_flag = True
+                table.append(row_data)
+            else:
+                if self.table_flag:
+                    # table close
+                    tables.append(table)
+                    table = []
+                    self.table_flag = False
+            return table, tables
+
         if str_body:
             # str_line exclude '\n'
             for str_line in str_body.split('\n'):
@@ -317,22 +334,7 @@ class HatenaXMLParser(object):
                         footnotes += footnotes_ + '\n'
 
                     # extract table data
-                    pat_table, match_obj = self.regex_search(
-                        '^\|(.+?)\|$', str_line)
-                    if match_obj:
-                        row_data = (match_obj.group(0),
-                                    match_obj.groups()[0].split('|'))
-                        if not self.table_flag:
-                            # table start
-                            self.table_flag = True
-                        table.append(row_data)
-                    else:
-                        if self.table_flag:
-                            # table close
-                            tables.append(table)
-                            table = []
-                            self.table_flag = False
-                    #tables = extract_tables(str_line, table, tables)
+                    table, tables = extract_tables(str_line, table, tables)
 
                     # remove hatena internal link
                     str_line = self.remove_hatena_internal_link(str_line)
@@ -358,31 +360,28 @@ class HatenaXMLParser(object):
                         columns_width[i] = utils.length_str(row[1][i])
                     else:
                         columns_width[i] = columns_width[i]
-                return columns_width
+            return columns_width
 
-        def convert_row(row):
-            row_str = ''
-            thead = ''
-            tbody = ''
+        def convert_row(row, row_str, thead, tbody):
+
             for i in range(len(row[1])):
                 # numbers of values
-                    if i < len(row[1]) - 1:
-                        row_str += ("| " + row[1][i] +
-                                    " " * (columns_width[i] -
-                                           utils.length_str(row[1][i])) + ' ')
-                        if row_i == 0:
-                            thead += ("+" + "=" * (columns_width[i] + 2))
-                            tbody += ("+" + "-" * (columns_width[i] + 2))
-                    else:
-                        row_str += ("| " + row[1][i] +
-                                    " " * (columns_width[i]
-                                           - utils.length_str(row[1][i]))
-                                    + ' |\n')
-
-                        if row_i == 0:
-                            thead += ("+" + "=" * (columns_width[i] + 2) + '+')
-                            tbody += ("+" + "-" * (columns_width[i] + 2) + '+')
-                    return (row_str, thead, tbody)
+                if i < len(row[1]) - 1:
+                    row_str += ("| " + row[1][i] +
+                                " " * (columns_width[i] -
+                                       utils.length_str(row[1][i])) + ' ')
+                    if row_i == 0:
+                        thead += ("+" + "=" * (columns_width[i] + 2))
+                        tbody += ("+" + "-" * (columns_width[i] + 2))
+                else:
+                    row_str += ("| " + row[1][i] +
+                                " " * (columns_width[i]
+                                       - utils.length_str(row[1][i]))
+                                + ' |\n')
+                    if row_i == 0:
+                        thead += ("+" + "=" * (columns_width[i] + 2) + '+')
+                        tbody += ("+" + "-" * (columns_width[i] + 2) + '+')
+            return (row_str, thead, tbody)
 
         def merge_row_string(row_str, thead, tbody):
             merge_row_str = ''
@@ -401,6 +400,9 @@ class HatenaXMLParser(object):
             table is list; [row, row]
             '''
             replace_line = ''
+            thead = ''
+            tbody = ''
+
             columns_width = [0] * len(table[1][1])
 
             # get columns width
@@ -410,14 +412,17 @@ class HatenaXMLParser(object):
 
             for row_i, row in enumerate(table):
 
+                row_str = ''
+
                 # get row string, row head border, row bottom border
-                row_str, thead, tbody = convert_row(row)
+                row_str, thead, tbody = convert_row(row, row_str, thead, tbody)
 
                 # merge row string with row
                 merge_row_str = merge_row_string(row_str, thead, tbody)
 
                 # merge string with row string
-                merge_string = merge_string.replace(row[0], merge_row_str)
+                merge_string = merge_string.replace(row[0], merge_row_str, 1)
+
         return merge_string
 
     def convert_hyperlink(self, str_line):
@@ -742,6 +747,5 @@ class HatenaXMLParser(object):
 
         # remove <br>
         prog = re.compile('<br?>', flags=re.U)
-        # m = prog.search(string)
         converted_comment = prog.sub('', comment_text)
         return converted_comment
