@@ -32,20 +32,19 @@ import utils
 import htnparser
 
 
-xmlfile = os.path.expanduser('~/docs/palmtb/myblog-hatena/mkouhei.xml')
-p = htnparser.HatenaXMLParser(xmlfile)
+def xml2rest(infile, dstdir=None):
 
-output_dir = os.path.expanduser('~/tmp/htn2rest-test/')
+    p = htnparser.HatenaXMLParser(infile)
 
-
-def converter():
+    if dstdir is None:
+        dstdir = os.path.expanduser('~/tmp/htn2rest/')
 
     path_str = '\n'
     for d in p.list_day_element():
         dirpath, bodies, comments = p.handle_entries_per_day(d)
 
         # make directory
-        mkdir(output_dir + dirpath)
+        mkdir(dstdir + dirpath)
 
         for body in bodies:
 
@@ -57,14 +56,14 @@ def converter():
             # append path for master.rst
             path_str = '   ' + dirpath + timestamp + '\n' + path_str
 
-            with open(output_dir + dirpath + timestamp + '.rst', 'w') as f:
+            with open(dstdir + dirpath + timestamp + '.rst', 'w') as f:
                 f.write(output(title, categories, body).encode('utf-8'))
 
             if comments:
                 for comment in comments:
                     ''' '''
 
-    with open(output_dir + 'master.rst', 'a') as f:
+    with open(dstdir + 'master.rst', 'a') as f:
         f.write(path_str)
 
 

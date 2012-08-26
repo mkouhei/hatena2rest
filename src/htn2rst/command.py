@@ -18,6 +18,7 @@
 import os.path
 import sys
 import argparse
+import processing
 from __init__ import __version__
 
 
@@ -25,7 +26,7 @@ def parse_options():
     prs = argparse.ArgumentParser(description='usage')
     prs.add_argument('-V', '--version', action='version', version=__version__)
     setoption(prs, 'infile')
-    setoption(prs, 'dstpath')
+    setoption(prs, 'dstdir')
     args = prs.parse_args()
     return args
 
@@ -35,8 +36,8 @@ def setoption(obj, kword):
         obj.add_argument('infile', action='store',
                          help='specify input exported file of hatena diary')
 
-    if kword == 'dstpath':
-        obj.add_argument('-d', '--dstpath', action='store',
+    if kword == 'dstdir':
+        obj.add_argument('-d', '--dstdir', action='store',
                          help='specify output destination directory path')
 
 
@@ -47,11 +48,19 @@ def error(e):
 def main():
     try:
         args = parse_options()
-        args.func(args)
+        f = args.__dict__.get('infile')
+        if f.find('~') == 0:
+            infile = os.path.expanduser(f)
+        else:
+            infile = os.path.abspath(f)
 
-        o = Htn2Rest()
-        o.readFile()
-        o.datas()
+        if args.__dict__.get('dstdir'):
+            dstdir = args.__dict__.get('dstdir')
+        else:
+            # default: ~/tmp/htn2rest/
+            dstdir = None
+
+        processing.xml2rest(infile, dstdir)
 
     except RuntimeError as e:
         error(e)
@@ -59,7 +68,6 @@ def main():
     except UnboundLocalError as e:
         error(e)
         return
-
 
 if __name__ == '__main__':
     main()
