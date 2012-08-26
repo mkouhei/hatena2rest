@@ -434,7 +434,7 @@ class HatenaXMLParser(object):
 
         convert is below
         from: hatena [url:title:titlestring]
-          to: reSt `titlestring <url>`_
+          to: reST `titlestring <url>`_
         """
         str_rested = str_line
         prog = re.compile(
@@ -445,6 +445,16 @@ class HatenaXMLParser(object):
         return str_rested
 
     def fotolife2rest(self, str_line):
+        """Convert fotolife to image directive.
+
+        Argument:
+
+            string: text string of blog entry.
+
+        convert is below
+        from: hatena [f:id:imageid:image]
+          to: reST .. image:: imgsrc
+        """
         r, m = self.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image\]', str_line)
         if m:
@@ -534,7 +544,7 @@ class HatenaXMLParser(object):
             category: (\[.*\])*
             title with uri: (\[http?://.*\])(.*)
             '''
-            prog = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
+            pat_title = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
                               flags=re.U)
 
             '''pattern b)
@@ -543,65 +553,66 @@ class HatenaXMLParser(object):
             category: (\[.*\])*
             title: (.*)
             '''
-            prog2 = re.compile('\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
+            pat_title_with_link = re.compile(
+                '\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
 
-            if prog.search(str_title_line):
+            if pat_title.search(str_title_line):
                 # pattern a)
                 timestamp, str_categories, linked_title, str_title = (
-                    prog.search(str_title_line).groups())
+                    pat_title.search(str_title_line).groups())
 
                 title = self.convert_hyperlink(linked_title) + str_title
 
-            elif prog2.search(str_title_line):
+            elif pat_title_with_link.search(str_title_line):
                 # pattern b)
                 timestamp, str_categories, title = (
-                    prog2.search(str_title_line).groups())
+                    pat_title_with_link.search(str_title_line).groups())
 
             return (utils.unix2ctime(timestamp, date_enabled=False),
                     self.extract_categories(str_categories), title)
 
     def remove_hatena_internal_link(self, str_line):
-        r, m = self.regex_search('(\[\[|\]\])', str_line)
+        pat_hatena_internal_link, m = self.regex_search(
+            '(\[\[|\]\])', str_line)
         if m:
-            str_line = r.sub('', str_line)
+            str_line = pat_hatena_internal_link.sub('', str_line)
 
-        r, m = self.regex_search('(<span .+?>(.+?)</span>)', str_line)
+        pat_span_tag, m = self.regex_search(
+            '(<span .+?>(.+?)</span>)', str_line)
         if m:
-            str_line = r.sub(m.group(2), str_line)
+            str_line = pat_span_tag.sub(m.group(2), str_line)
 
-        r, m = self.regex_search('(<del .+?>(.+?)</del>)', str_line)
+        pat_del_tag, m = self.regex_search('(<del .+?>(.+?)</del>)', str_line)
         if m:
-            str_line = r.sub('', str_line)
+            str_line = pat_del_tag.sub('', str_line)
 
         # for google maps
-        pattern_google_maps, m = self.regex_search(
+        pat_google_maps, m = self.regex_search(
             '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
             str_line)
         if m:
-            str_line = pattern_google_maps.sub(
+            str_line = pat_google_maps.sub(
                 '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for image
-        pattern_amazon, m = self.regex_search('amazlet', str_line)
-        if m:
-            print m
-        else:
-            pattern_image, m = self.regex_search(
-            '(<a href="(.+?)" .+?><img src="(.+?)".*?/?></.+?>)', str_line)
+        pat_amazon, m = self.regex_search('amazlet', str_line)
+        if not m:
+            pat_image, m = self.regex_search(
+                '(<a href="(.+?)" .+?><img src="(.+?)".*?/?></.+?>)', str_line)
             if m:
-                str_line = pattern_image.sub(
+                str_line = pat_image.sub(
                     '\n.. image:: ' + m.group(3) + '\n   :target: '
                     + m.group(2) + '\n\n', str_line)
 
         # for object
-        pattern_youtube, m = self.regex_search(
+        pat_youtube, m = self.regex_search(
             '(<object .+?>(.*?)</.+?>)', str_line)
         if m:
-            str_line = pattern_youtube.sub(
+            str_line = pat_youtube.sub(
                 '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for tweet
-        pattern_comment, m = self.regex_search(
+        pat_comment, m = self.regex_search(
             '((<!-- (.+?) -->) (<.+?>(.+?)</.+?> )(<!-- (.+) -->))', str_line)
         if m:
             str_tmp = str_line.replace(m.group(2), '')
@@ -613,9 +624,9 @@ class HatenaXMLParser(object):
                 str_tmp = str_tmp.replace('><', '>\n<')
                 str_tmp = str_tmp.replace('> <', '>\n<')
                 str_tmp = str_tmp.replace('</span>\n', '')
-                pattern_tweet = re.compile(
+                pat_tweet = re.compile(
                     '((<.+?>(.+?)</.+?>)(.+?)(<.+?>(.+?)</.+?>))')
-                m3 = pattern_tweet.search(str_tmp)
+                m3 = pat_tweet.search(str_tmp)
                 if m3:
                     r = re.compile('<a.+?>')
                     tweet_msg = (r.sub('', m3.group(3)) +
@@ -626,7 +637,7 @@ class HatenaXMLParser(object):
                 print tweet_msg
                 print uri
                 repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
-                str_line = pattern_comment.sub(repl_str, str_line)
+                str_line = pat_comment.sub(repl_str, str_line)
                 return str_line
 
         # for amazlet
@@ -693,8 +704,8 @@ class HatenaXMLParser(object):
            list of categories.
         """
         if str_categories:
-            prog = re.compile('\[(.+?)\]', flags=re.U)
-            list_category = prog.findall(str_categories)
+            pat_category = re.compile('\[(.+?)\]', flags=re.U)
+            list_category = pat_category.findall(str_categories)
             return list_category
 
     def extract_entry_body(self, body_text):
@@ -746,6 +757,6 @@ class HatenaXMLParser(object):
         """
 
         # remove <br>
-        prog = re.compile('<br?>', flags=re.U)
-        converted_comment = prog.sub('', comment_text)
+        pat_br_tag = re.compile('<br?>', flags=re.U)
+        converted_comment = pat_br_tag.sub('', comment_text)
         return converted_comment
