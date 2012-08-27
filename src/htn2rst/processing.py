@@ -26,10 +26,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+
 import re
 import os.path
 import utils
 import htnparser
+import commands
 
 
 def xml2rest(infile, dstdir=None):
@@ -38,6 +40,12 @@ def xml2rest(infile, dstdir=None):
 
     if dstdir is None:
         dstdir = os.path.expanduser('~/tmp/htn2rest/')
+
+    if not os.path.isfile(dstdir + 'conf.py'):
+        # chdir to dstdir
+
+        # exec tinker setup
+        commands.getstatusoutput('tinker -s')
 
     path_str = '\n'
     for d in p.list_day_element():
