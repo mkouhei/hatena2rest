@@ -695,10 +695,11 @@ class HatenaXMLParser(object):
                     '((<.+?>(.+?)</.+?>)(.+?)(<.+?>(.+?)</.+?>))')
                 m3 = pat_tweet.search(str_tmp)
                 if m3:
-                    r = re.compile('<a.+?>')
-                    tweet_msg = (r.sub('', m3.group(3)) +
-                                 r.sub('', m3.group(4))
-                                 + r.sub('', m3.group(5))).replace('</a>', '')
+                    pat_anchor = re.compile('<a.+?>')
+                    tweet_msg = (pat_anchor.sub('', m3.group(3)) +
+                                 pat_ahchor.sub('', m3.group(4))
+                                 + pat_anchor.sub('', m3.group(5))
+                                 ).replace('</a>', '')
 
                 uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
                 repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
