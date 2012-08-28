@@ -644,6 +644,38 @@ class HatenaXMLParser(object):
         if m:
             str_line = pat_hatena_internal_link.sub('', str_line)
 
+        # for ditto
+        pat_ditto, m = self.regex_search(
+            '(<style .+?>.+?</style>)(<div .+?>.+?</div>)',
+            str_line)
+        if m:
+            ex_ref_char = re.compile('\&(?!amp;)', flags=re.U)
+            string = ex_ref_char.sub('&amp;', m.group(2))
+
+            # get uri
+            uri = ''
+            xmltree = xml.etree.ElementTree.fromstring(string.encode('utf-8'))
+            for p_child in xmltree.find('p').getchildren():
+                for i, p_child_child in enumerate(p_child.getchildren()):
+                    if i == 1 and p_child_child.get('href'):
+                        uri = p_child_child.get('href')
+            #print uri
+
+            # get tweet message
+            tweet_msg = ''
+            if xmltree.get('class').find('ditto') == 0:
+                span_element = xmltree.find('p').find('span').find('span')
+                for i, v in enumerate(xmltree.itertext()):
+                    if i > 1:
+                        pat = re.compile('&nbsp;|via', flags=re.U)
+                        if pat.search(v) > 0:
+                            break
+                        else:
+                            tweet_msg += str(v.encode('utf-8'))
+            #print tweet_msg
+            repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+            str_line = pat_ditto.sub(m.group(), repl_str).decode('utf-8')
+
         pat_span_tag, m = self.regex_search(
             '(<span .+?>(.+?)</span>)', str_line)
         if m:
