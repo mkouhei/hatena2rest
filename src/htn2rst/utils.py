@@ -20,9 +20,16 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
+import sys
 import re
 import time
 import unicodedata
+if sys.version_info > (2, 6) and sys.version_info < (2, 8):
+    import urllib2 as urllib
+elif sys.version_info > (3, 0):
+    import urllib.request as urllib
+import socket
+#socket.setdefaulttimeout(__timeout__)
 
 
 def unix2ctime(unixtime, date_enabled=True):
@@ -68,3 +75,18 @@ def length_str(string):
                    for c in string
                    if unicodedata.east_asian_width(c) in hnna])
     return (zenkaku * 2 + hankaku)
+
+
+def retrieve_image(img_uri, img_src):
+    obj = urllib.build_opener(urllib.HTTPHandler)
+    for suffix in ('.jpg', '.png'):
+        req = urllib.Request(img_uri + suffix)
+        try:
+            res = obj.open(req)
+            data = res.read()
+            with open(img_src, 'w') as f:
+                f.write(data)
+        except urllib.HTTPError as e:
+            print(e)
+        finally:
+            return img_uri + suffix

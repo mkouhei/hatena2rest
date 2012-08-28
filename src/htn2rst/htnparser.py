@@ -520,13 +520,21 @@ class HatenaXMLParser(object):
         convert is below
         from: hatena [f:id:imageid:image]
           to: reST .. image:: imgsrc
+                      :target: uri
         """
         r, m = self.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image\]', str_line)
         if m:
-            str_line = r.sub(
-                ('\n.. image:: http://f.hatena.ne.jp/' +
-                 m.group(1) + '/' + m.group(2) + '\n'), str_line)
+            uri = 'http://f.hatena.ne.jp/' + m.group(1) + '/' + m.group(2)
+            img_uri_partial = ('http://cdn-ak.f.st-hatena.com/images/fotolife/'
+                               + m.group(1)[0] + '/' + m.group(1) + '/'
+                               + m.group(2)[0:8] + '/' + m.group(2))
+            img_uri = img_src = ('/img/' + m.group(2) + '.png')
+            # get image file
+            utils.retrieve_image(img_uri, '/home/kohei/tmp/htn2rest' + img_src)
+            repl_str = ('\n.. image:: ' + img_src +
+                        '\n   :target: ' + uri + '\n\n')
+            str_line = r.sub(repl_str, str_line)
         return str_line
 
     def listing2rest(self, str_line):
@@ -760,10 +768,14 @@ class HatenaXMLParser(object):
             uri = anchor_element.get('href')
             img_src = img_element.get('src')
             img_alt = img_element.get('alt')
-
+            '''
             repl_amazon = ('\n.. figure:: ' + img_src + '\n   ' +
-                           ':alt: ' + img_alt + '\n\n   `' + img_alt +
+                           ':alt: ' + img_alt + '\n   \n   `' + img_alt +
                            ' <' + uri + '>`_\n')
+                           '''
+            repl_amazon = ('\n.. image:: ' + img_src + '\n   :target: ' +
+                           uri + '\n\n' + img_alt + '\n\n')
+
             return repl_amazon
 
         def parse_twitter(xmltree):
