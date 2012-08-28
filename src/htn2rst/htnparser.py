@@ -697,7 +697,7 @@ class HatenaXMLParser(object):
                 if m3:
                     pat_anchor = re.compile('<a.+?>')
                     tweet_msg = (pat_anchor.sub('', m3.group(3)) +
-                                 pat_ahchor.sub('', m3.group(4))
+                                 pat_anchor.sub('', m3.group(4))
                                  + pat_anchor.sub('', m3.group(5))
                                  ).replace('</a>', '')
 
