@@ -96,8 +96,6 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
             logging('OK: ' + img_path)
             return True
 
-    obj = urllib.build_opener(urllib.HTTPHandler)
-
     if not os.path.isdir(img_src_dir):
         os.makedirs(img_src_dir)
 
@@ -105,13 +103,18 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
     os.chdir(img_src_dir)
     if glob.glob(os.path.basename(img_uri + '*')):
         img_path = glob.glob(os.path.basename(img_uri + '*'))[0]
-        return img_path
+        if check_local_img(img_path):
+            return img_path
+
+    obj = urllib.build_opener(urllib.HTTPHandler)
 
     if img_uri.find('fotolife') > 0:
 
         # for hatena fotolife
+        '''
         if check_local_img(img_path):
             return os.path.basename(img_path)
+            '''
 
         for suffix in ('.jpg', '.png'):
 
@@ -138,8 +141,10 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
         # for exclude fotolife
         img_path = img_src_dir + os.path.basename(img_uri)
 
+        '''
         if check_local_img(img_path):
             return os.path.basename(img_path)
+            '''
 
         if retrieve_image_flag:
             req = urllib.Request(img_uri)
