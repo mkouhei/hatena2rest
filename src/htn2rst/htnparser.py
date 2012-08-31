@@ -438,7 +438,7 @@ class HatenaXMLParser(object):
 
             # convert table
             merge_string = self.table2rest(tables, merge_string)
-
+            self.code_flag = False
             return merge_string + '\n' + footnotes
 
     def table2rest(self, tables, merge_string):
@@ -757,8 +757,9 @@ class HatenaXMLParser(object):
             pat_youtube, m = self.regex_search(
                 '(<object .+?>(.*?)</.+?>)', str_line)
             if m:
-                str_line = pat_youtube.sub(
-                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+                str_line = pat_youtube.sub(m.group(0), str_line)
+                str_line = str_line.replace('\n', '')
+                str_line = '\n.. raw:: html\n\n    ' + str_line + '\n'
 
         # for tweet
         pat_comment, m = self.regex_search(
