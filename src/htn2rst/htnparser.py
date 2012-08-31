@@ -116,10 +116,14 @@ class MtParser(HTMLParser):
             #self.text = self.text + '#. ' + data + '\n'
         elif self.img_src:
             if self.img_alt:
-                self.text = self.text + '\n.. image:: ' + self.img_src + \
-                    '\n   :alt: ' + self.img_alt + '\n'
+                img_path = utils.retrieve_image(self.img_src,
+                                                self.dstdir + __imgdir__,
+                                                self.retrieve_image_flag)
+                self.text = (self.text + '\n.. image:: ' + __imgdir__ +
+                             img_path + '\n   :alt: ' + self.img_alt + '\n')
             else:
-                self.text = self.text + '\n.. image:: ' + self.img_src + '\n'
+                self.text = (self.text + '\n.. image:: ' + __imgdir__ +
+                             img_path + '\n')
         else:
             self.text += data
 
@@ -555,7 +559,6 @@ class HatenaXMLParser(object):
         r, m = self.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image\]', str_line)
         if m:
-            #uri = 'http://f.hatena.ne.jp/' + m.group(1) + '/' + m.group(2)
             img_uri_partial = ('http://cdn-ak.f.st-hatena.com/images/fotolife/'
                                + m.group(1)[0] + '/' + m.group(1) + '/'
                                + m.group(2)[0:8] + '/' + m.group(2))
@@ -742,8 +745,11 @@ class HatenaXMLParser(object):
             pat_image, m = self.regex_search(
                 '(<a href="(.+?)" .+?><img src="(.+?)".*?/?></.+?>)', str_line)
             if m:
+                img_path = utils.retrieve_image(m.group(3),
+                                                self.dstdir + __imgdir__,
+                                                self.retrieve_image_flag)
                 str_line = pat_image.sub(
-                    '\n.. image:: ' + m.group(3) + '\n   :target: '
+                    '\n.. image:: ' + __imgdir__ + img_path + '\n   :target: '
                     + m.group(2) + '\n\n', str_line)
 
         # for object
@@ -777,8 +783,11 @@ class HatenaXMLParser(object):
                                  + pat_anchor.sub('', m3.group(5))
                                  ).replace('</a>', '')
 
-                uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
-                repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+                if self.parse_blog_parts(str_tmp.encode('utf-8')):
+                    uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
+                    repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+                else:
+                    repl_str = ''
                 str_line = pat_comment.sub(repl_str, str_line)
                 return str_line
 
@@ -802,14 +811,17 @@ class HatenaXMLParser(object):
             img_element = anchor_element.find('img')
 
             uri = anchor_element.get('href')
-            img_src = img_element.get('src')
+            img_uri = img_element.get('src')
             img_alt = img_element.get('alt')
-            img_path = utils.retrieve_image(img_src,
+            img_path = utils.retrieve_image(img_uri,
                                             self.dstdir + __imgdir__,
                                             self.retrieve_image_flag)
-            repl_amazon = ('\n.. image:: ' + __imgdir__ +
-                           img_path + '\n   :target: ' +
-                           uri + '\n\n' + img_alt + '\n\n')
+            if img_path:
+                repl_amazon = ('\n.. image:: ' + __imgdir__ +
+                               img_path + '\n   :target: ' +
+                               uri + '\n\n' + img_alt + '\n\n')
+            else:
+                repl_amazon = ''
             return repl_amazon
 
         def parse_twitter(xmltree):

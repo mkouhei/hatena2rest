@@ -23,6 +23,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import sys
 import re
 import os
+import glob
 import time
 import unicodedata
 from datetime import datetime
@@ -100,29 +101,36 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
     if not os.path.isdir(img_src_dir):
         os.makedirs(img_src_dir)
 
-    img_src = ''
+    # return image file path
+    os.chdir(img_src_dir)
+    if glob.glob(os.path.basename(img_uri + '*')):
+        img_path = glob.glob(os.path.basename(img_uri + '*'))[0]
+        return img_path
 
-    if img_uri.find('f.hatena.ne.jp') > 0:
+    if img_uri.find('fotolife') > 0:
+
         # for hatena fotolife
+        if check_local_img(img_path):
+            return os.path.basename(img_path)
+
         for suffix in ('.jpg', '.png'):
 
             # return image file path
-            img_src = (lambda img_src_dir, img_uri, suffix:
-                           img_src_dir + os.path.basename(img_uri) + suffix)
-            img_path = img_src(img_src_dir, img_uri, suffix)
-            if not check_local_img(img_path):
-                continue
+            get_img_path = (lambda img_src_dir, img_uri, suffix:
+                                img_src_dir + os.path.basename(img_uri)
+                            + suffix)
+            img_path = get_img_path(img_src_dir, img_uri, suffix)
 
             if retrieve_image_flag:
                 req = urllib.Request(img_uri + suffix)
                 try:
-                    if not check_local_img(img_path):
-                        socket.setdefaulttimeout(__timeout__)
-                        save_image(obj, req, img_path)
-                        time.sleep(__sleep__)
+                    socket.setdefaulttimeout(__timeout__)
+                    save_image(obj, req, img_path)
+                    time.sleep(__sleep__)
 
                 except urllib.HTTPError as e:
                     logging(e)
+                    img_path = ''
                     continue
 
         return os.path.basename(img_path)
@@ -143,6 +151,7 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
 
             except urllib.HTTPError as e:
                 logging(e)
+                img_path = ''
 
         return os.path.basename(img_path)
 
