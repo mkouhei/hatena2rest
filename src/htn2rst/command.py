@@ -25,6 +25,7 @@ from __init__ import __version__
 def parse_options():
     prs = argparse.ArgumentParser(description='usage')
     prs.add_argument('-V', '--version', action='version', version=__version__)
+    setoption(prs, 'retrieve')
     setoption(prs, 'infile')
     setoption(prs, 'dstdir')
     args = prs.parse_args()
@@ -39,6 +40,10 @@ def setoption(obj, kword):
     if kword == 'dstdir':
         obj.add_argument('-d', '--dstdir', action='store',
                          help='specify output destination directory path')
+
+    if kword == 'retrieve':
+        obj.add_argument('-r', '--retrieve', action='store_true',
+                         help='Retrieve image from web services')
 
 
 def error(e):
@@ -60,7 +65,12 @@ def main():
             # default: ~/tmp/htn2rest/
             dstdir = None
 
-        processing.xml2rest(infile, dstdir)
+        if args.__dict__.get('retrieve'):
+            retrieve_image_flag = True
+        else:
+            retrieve_image_flag = False
+
+        processing.xml2rest(infile, dstdir, retrieve_image_flag)
 
     except RuntimeError as e:
         error(e)

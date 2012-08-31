@@ -17,3 +17,8 @@
 """
 
 __version__ = '0.1'
+__sleep__ = 1
+__timeout__ = 4
+__log__ = '/tmp/htn2rest.log'
+__dstdir__ = '~/tmp/htn2rest/'
+__imgdir__ = '/img/'

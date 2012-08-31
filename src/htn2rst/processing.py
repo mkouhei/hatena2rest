@@ -32,20 +32,24 @@ import os.path
 import utils
 import htnparser
 import commands
+from __init__ import __dstdir__
 
 
-def xml2rest(infile, dstdir=None):
-
-    p = htnparser.HatenaXMLParser(infile)
+def xml2rest(infile, dstdir=None, retrieve_image_flag=False):
 
     if dstdir is None:
-        dstdir = os.path.expanduser('~/tmp/htn2rest/')
+        dstdir = os.path.expanduser(__dstdir__)
+    else:
+        dstdir = os.patn.expanduser(dstdir)
 
     if not os.path.isfile(dstdir + 'conf.py'):
         # chdir to dstdir
+        os.chdir(dstdir)
 
         # exec tinker setup
         commands.getstatusoutput('tinker -s')
+
+    p = htnparser.HatenaXMLParser(infile, dstdir, retrieve_image_flag)
 
     path_str = '\n'
     for d in p.list_day_element():

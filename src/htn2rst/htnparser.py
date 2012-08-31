@@ -31,6 +31,7 @@ import re
 from HTMLParser import HTMLParser
 import xml.etree.ElementTree
 import utils
+from __init__ import __imgdir__
 
 
 class MtParser(HTMLParser):
@@ -116,9 +117,9 @@ class MtParser(HTMLParser):
         elif self.img_src:
             if self.img_alt:
                 self.text = self.text + '\n.. image:: ' + self.img_src + \
-                    '\n   :alt: ' + self.img_alt + '\n\n'
+                    '\n   :alt: ' + self.img_alt + '\n'
             else:
-                self.text = self.text + '\n.. image:: ' + self.img_src + '\n\n'
+                self.text = self.text + '\n.. image:: ' + self.img_src + '\n'
         else:
             self.text += data
 
@@ -134,7 +135,7 @@ class MtParser(HTMLParser):
 class HatenaXMLParser(object):
     """Hatena specify XML format."""
 
-    def __init__(self, file):
+    def __init__(self, file, dstdir, retrieve_image_flag=False):
         """Read exported XML file, and initialize parameters.
 
         Argument:
@@ -147,6 +148,8 @@ class HatenaXMLParser(object):
             self.table_flag = False
             self.list_lv = 0
             self.ref_flag = False
+        self.retrieve_image_flag = retrieve_image_flag
+        self.dstdir = dstdir
 
     def list_day_element(self):
         """Day element is daily unit of Hatena diary exported data,
@@ -360,15 +363,32 @@ class HatenaXMLParser(object):
                     self.table_flag = False
             return table, tables
 
+        def replace_asterisk(string_line):
+            # except table header
+            if string_line.find('|*') < 0:
+                string_line = string_line.replace('*', '\*')
+                if string_line.find('\*\*\*') == 0:
+                    string_line = string_line.replace('\*\*\*', '***', 1)
+                elif string_line.find('\*\*') == 0:
+                    string_line = string_line.replace('\*\*', '**', 1)
+                elif string_line.find('\*') == 0:
+                    string_line = string_line.replace('\*', '*', 1)
+            return string_line
+
+        def replace_shell_variable(string_line):
+            pat_shell_var, match_obj = self.regex_search(
+                '(\${.+?}[a-zA-Z0-9/_\\\*]+)', string_line)
+            if match_obj:
+                string_line = pat_shell_var.sub(
+                    ' :command:`' + match_obj.group() + '` ', string_line)
+            return string_line
+
         if str_body:
             # str_line exclude '\n'
             for str_line in str_body.split('\n'):
 
                 # convert hyperlink
                 str_line = self.convert_hyperlink(str_line)
-
-                # convert image from hatena fotolife
-                str_line = self.fotolife2rest(str_line)
 
                 # handle line inside code block
                 if self.code_flag:
@@ -378,11 +398,20 @@ class HatenaXMLParser(object):
                 else:
                     str_line = parse_start_codeblock(str_line)
 
+                    # replace '*' to '\*' of inline
+                    str_line = replace_asterisk(str_line)
+
                     # listing
                     str_line = self.listing2rest(str_line)
 
+                    # convert shell var
+                    str_line = replace_shell_variable(str_line)
+
                     # section , subsection
                     str_line = self.section2rest(str_line)
+
+                    # convert image from hatena fotolife
+                    str_line = self.fotolife2rest(str_line)
 
                     # convert footnote
                     str_line, footnotes_ = self.footnote2rest(str_line)
@@ -483,7 +512,8 @@ class HatenaXMLParser(object):
                 merge_row_str = merge_row_string(row_str, thead, tbody)
 
                 # merge string with row string
-                merge_string = merge_string.replace(row[0], merge_row_str, 1)
+                merge_string = merge_string.replace(
+                    row[0] + '\n', merge_row_str, 1)
 
         return merge_string
 
@@ -525,15 +555,16 @@ class HatenaXMLParser(object):
         r, m = self.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image\]', str_line)
         if m:
-            uri = 'http://f.hatena.ne.jp/' + m.group(1) + '/' + m.group(2)
+            #uri = 'http://f.hatena.ne.jp/' + m.group(1) + '/' + m.group(2)
             img_uri_partial = ('http://cdn-ak.f.st-hatena.com/images/fotolife/'
                                + m.group(1)[0] + '/' + m.group(1) + '/'
                                + m.group(2)[0:8] + '/' + m.group(2))
-            img_uri = img_src = ('/img/' + m.group(2) + '.png')
             # get image file
-            utils.retrieve_image(img_uri, '/home/kohei/tmp/htn2rest' + img_src)
-            repl_str = ('\n.. image:: ' + img_src +
-                        '\n   :target: ' + uri + '\n\n')
+            img_src = utils.retrieve_image(img_uri_partial,
+                                           self.dstdir + __imgdir__,
+                                           self.retrieve_image_flag)
+            utils.logging(img_src)
+            repl_str = ('\n.. image:: ' + __imgdir__ + img_src)
             str_line = r.sub(repl_str, str_line)
         return str_line
 
@@ -556,6 +587,7 @@ class HatenaXMLParser(object):
                     repl = '\n' + item
                     self.list_lv = i
                 str_line = r.sub(repl, str_line)
+        str_line += '\n'
         return str_line
 
     def section2rest(self, str_line):
@@ -564,10 +596,11 @@ class HatenaXMLParser(object):
             sep = '-' if i == 2 else '^'
             r, m = self.regex_search('^(\*){%d}(.*)' % i, str_line)
             if m:
+                pat_space = re.compile('^\s+')
+                section_str = pat_space.sub('', m.group(2))
                 str_line = r.sub(
-                    '\n' + m.group(2) + '\n'
-                    + sep * utils.length_str(m.group(2)) + '\n', str_line)
-
+                    '\n' + section_str + '\n'
+                    + sep * utils.length_str(section_str) + '\n', str_line)
         return str_line
 
     def footnote2rest(self, str_line):
@@ -667,7 +700,7 @@ class HatenaXMLParser(object):
                 for i, p_child_child in enumerate(p_child.getchildren()):
                     if i == 1 and p_child_child.get('href'):
                         uri = p_child_child.get('href')
-            #print uri
+            #utils.logging(uri, debug)
 
             # get tweet message
             tweet_msg = ''
@@ -680,7 +713,7 @@ class HatenaXMLParser(object):
                             break
                         else:
                             tweet_msg += str(v.encode('utf-8'))
-            #print tweet_msg
+            #utils.logging(tweet_msg, debug)
             repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
             str_line = pat_ditto.sub(m.group(), repl_str).decode('utf-8')
 
@@ -694,12 +727,14 @@ class HatenaXMLParser(object):
             str_line = pat_del_tag.sub('', str_line)
 
         # for google maps
-        pat_google_maps, m = self.regex_search(
-            '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
-            str_line)
-        if m:
-            str_line = pat_google_maps.sub(
-                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+        if (str_line.find('http://maps.google.com/') > 0 or
+            str_line.find('http://maps.google.co.jp/') > 0):
+            pat_google_maps, m = self.regex_search(
+                '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
+                str_line)
+            if m:
+                str_line = pat_google_maps.sub(
+                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for image
         pat_amazon, m = self.regex_search('amazlet', str_line)
@@ -712,11 +747,12 @@ class HatenaXMLParser(object):
                     + m.group(2) + '\n\n', str_line)
 
         # for object
-        pat_youtube, m = self.regex_search(
-            '(<object .+?>(.*?)</.+?>)', str_line)
-        if m:
-            str_line = pat_youtube.sub(
-                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+        if str_line.find('http://www.youtube.com') > 0:
+            pat_youtube, m = self.regex_search(
+                '(<object .+?>(.*?)</.+?>)', str_line)
+            if m:
+                str_line = pat_youtube.sub(
+                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for tweet
         pat_comment, m = self.regex_search(
@@ -768,14 +804,12 @@ class HatenaXMLParser(object):
             uri = anchor_element.get('href')
             img_src = img_element.get('src')
             img_alt = img_element.get('alt')
-            '''
-            repl_amazon = ('\n.. figure:: ' + img_src + '\n   ' +
-                           ':alt: ' + img_alt + '\n   \n   `' + img_alt +
-                           ' <' + uri + '>`_\n')
-                           '''
-            repl_amazon = ('\n.. image:: ' + img_src + '\n   :target: ' +
+            img_path = utils.retrieve_image(img_src,
+                                            self.dstdir + __imgdir__,
+                                            self.retrieve_image_flag)
+            repl_amazon = ('\n.. image:: ' + __imgdir__ +
+                           img_path + '\n   :target: ' +
                            uri + '\n\n' + img_alt + '\n\n')
-
             return repl_amazon
 
         def parse_twitter(xmltree):
@@ -789,7 +823,10 @@ class HatenaXMLParser(object):
             repl_slideshare = '\n`' + title + ' <' + uri + '>`_\n'
             return repl_slideshare
 
-        xmltree = xml.etree.ElementTree.fromstring(string)
+        try:
+            xmltree = xml.etree.ElementTree.fromstring(string)
+        except:
+            print string
 
         if xmltree.get('class') == 'amazlet-box':
             repl_amazon = parse_amazlet(xmltree)
