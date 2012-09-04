@@ -814,15 +814,7 @@ class HatenaXMLParser(object):
             uri = anchor_element.get('href')
             img_uri = img_element.get('src')
             img_alt = img_element.get('alt')
-            img_path = utils.retrieve_image(img_uri,
-                                            self.dstdir + __imgdir__,
-                                            self.retrieve_image_flag)
-            if img_path:
-                repl_amazon = ('\n.. image:: ' + __imgdir__ +
-                               img_path + '\n   :target: ' +
-                               uri + '\n\n' + img_alt + '\n\n')
-            else:
-                repl_amazon = ''
+            repl_amazon = ('\n\n`' + img_alt + ' <' + uri + '>`_\n\n')
             return repl_amazon
 
         def parse_twitter(xmltree):
