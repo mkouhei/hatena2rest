@@ -91,8 +91,20 @@ def remove_element_entity(string):
     else:
         replaced_str = string
 
-    # remove del element
+    # remove space
     replaced_str = replaced_str.replace('&nbsp;', '')
+
+    # remove span_begin element
+    pat_span_begin = re.compile('<span style=(.+?)>')
+    m = pat_span_begin.search(string)
+    if m:
+        replaced_str = pat_span_begin.sub('', string)
+    else:
+        replaced_str = string
+
+    # remove span_end element
+    replaced_str = replaced_str.replace('</span>', '')
+
     return replaced_str
 
 

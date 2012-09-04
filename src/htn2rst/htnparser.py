@@ -740,11 +740,12 @@ class HatenaXMLParser(object):
                     '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for gmodules
-        if str_line.find('http://gmodules.com') > 0:
+        if (str_line.find('http://gmodules.com') > 0 or
+            str_line.find('https://gist.github.com') > 0):
             pat_gmodules, m = self.regex_search(
-                '<script .+?>.+?</script>', str_line)
+                '^<script .+?></script>', str_line)
             if m:
-                str_line = spat_gmodules.sub(
+                str_line = pat_gmodules.sub(
                     '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
         # for img element
