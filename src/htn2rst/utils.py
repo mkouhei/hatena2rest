@@ -81,6 +81,18 @@ def length_str(string):
     return (zenkaku * 2 + hankaku)
 
 
+def remove_elements(string):
+
+    # remove del element
+    pat_del = re.compile('<del>.+?</del>')
+    m = pat_del.search(string)
+    if m:
+        replaced_str = pat_del.sub('', string)
+    else:
+        replaced_str = string
+    return replaced_str
+
+
 def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
 
     def check_local_img(img_path):

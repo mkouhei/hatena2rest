@@ -434,7 +434,7 @@ class HatenaXMLParser(object):
                     # remove hatena internal link
                     str_line = self.remove_hatena_internal_link(str_line)
 
-                merge_string += str_line + '\n'
+                merge_string += utils.remove_elements(str_line) + '\n'
 
             # convert table
             merge_string = self.table2rest(tables, merge_string)
