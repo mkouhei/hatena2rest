@@ -557,7 +557,7 @@ class HatenaXMLParser(object):
                       :target: uri
         """
         r, m = self.regex_search(
-            '\[f:id:(.*):([0-9]*)[a-z]:image\]', str_line)
+            '\[f:id:(.*):([0-9]*)[a-z]:image(:?.+?)\]', str_line)
         if m:
             img_uri_partial = ('http://cdn-ak.f.st-hatena.com/images/fotolife/'
                                + m.group(1)[0] + '/' + m.group(1) + '/'
