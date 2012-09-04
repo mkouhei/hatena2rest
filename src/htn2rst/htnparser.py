@@ -434,7 +434,7 @@ class HatenaXMLParser(object):
                     # remove hatena internal link
                     str_line = self.remove_hatena_internal_link(str_line)
 
-                merge_string += utils.remove_elements(str_line) + '\n'
+                merge_string += utils.remove_element_entity(str_line) + '\n'
 
             # convert table
             merge_string = self.table2rest(tables, merge_string)
@@ -739,6 +739,20 @@ class HatenaXMLParser(object):
                 str_line = pat_google_maps.sub(
                     '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
 
+        # for gmodules
+        if str_line.find('http://gmodules.com') > 0:
+            pat_gmodules, m = self.regex_search(
+                '<script .+?>.+?</script>', str_line)
+            if m:
+                str_line = spat_gmodules.sub(
+                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+
+        # for img element
+        pat_img, m = self.regex_search('^<img src="(.+?)" .+?(/?)>', str_line)
+        if m:
+            str_line = pat_img.sub('\n.. image:: ' + m.group(1)
+                                   + '\n\n', str_line)
+
         # for image
         pat_amazon, m = self.regex_search('amazlet', str_line)
         if not m:
@@ -792,7 +806,7 @@ class HatenaXMLParser(object):
                 str_line = pat_comment.sub(repl_str, str_line)
                 return str_line
 
-        # for amazlet
+        # for blogparts
         html_tags = re.compile('(^(<.+?>(.+?)</.+?>)$)', flags=re.U)
         m = html_tags.search(str_line)
         if m:

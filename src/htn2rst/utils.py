@@ -81,7 +81,7 @@ def length_str(string):
     return (zenkaku * 2 + hankaku)
 
 
-def remove_elements(string):
+def remove_element_entity(string):
 
     # remove del element
     pat_del = re.compile('<del>.+?</del>')
@@ -90,6 +90,9 @@ def remove_elements(string):
         replaced_str = pat_del.sub('', string)
     else:
         replaced_str = string
+
+    # remove del element
+    replaced_str = replaced_str.replace('&nbsp;', '')
     return replaced_str
 
 
