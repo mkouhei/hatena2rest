@@ -774,7 +774,9 @@ class HatenaXMLParser(object):
             if m:
                 str_line = pat_youtube.sub(m.group(0), str_line)
                 str_line = str_line.replace('\n', '')
-                str_line = '\n.. raw:: html\n\n    ' + str_line + '\n'
+                str_line = str_line.replace('&hl=ja', '')
+                str_line = str_line.replace('&fs=1', '')
+                str_line = '\n.. raw:: html\n\n   ' + str_line + '\n'
 
         # for tweet
         pat_comment, m = self.regex_search(
