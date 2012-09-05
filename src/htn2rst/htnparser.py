@@ -268,9 +268,9 @@ class HatenaXMLParser(object):
             if match_obj:
                 self.ref_flag = True
                 if match_obj.group(1):
-                    repl_str = '\n' + match_obj.group(1) + '::\n\n'
+                    repl_str = match_obj.group(1)
                 else:
-                    repl_str = '\n::'
+                    repl_str = ''
 
                 string_line = pat_start_ref.sub(
                     repl_str,
