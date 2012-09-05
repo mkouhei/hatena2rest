@@ -521,7 +521,7 @@ class HatenaXMLParser(object):
 
         return merge_string
 
-    def convert_hyperlink(self, str_line, top_space=True):
+    def convert_hyperlink(self, str_line):
         """Convert hyperlink.
 
         Argument:
@@ -533,15 +533,22 @@ class HatenaXMLParser(object):
           to: reST `titlestring <url>`_
         """
         str_rested = str_line
-        prog = re.compile(
-            '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
-        for i in prog.findall(str_line):
-            if top_space:
-                str_rested = str_rested.replace(
-                    i[0], ' `' + i[3] + ' <' + i[1] + '>`_ ')
-            else:
-                str_rested = str_rested.replace(
-                    i[0], '`' + i[3] + ' <' + i[1] + '>`_ ')
+        pat_line_head = re.compile(
+            '^(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+
+        pat_inline = re.compile(
+            '(.+?)(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+
+        m = pat_line_head.search(str_line)
+        if m:
+            str_rested = str_rested.replace(
+                m.group(1), '`' + m.group(4) + ' <' + m.group(2) + '>`_ ')
+
+        m2 = pat_inline.search(str_line)
+        if m2:
+            str_rested = str_rested.replace(
+                m2.group(2), ' `' + m2.group(5) + ' <' + m2.group(3) + '>`_ ')
+
         return str_rested
 
     def fotolife2rest(self, str_line):
@@ -672,7 +679,7 @@ class HatenaXMLParser(object):
                     pat_title.search(str_title_line).groups())
 
                 title = self.convert_hyperlink(
-                    linked_title, top_space=False) + str_title
+                    linked_title) + str_title
 
             elif pat_title_with_link.search(str_title_line):
                 # pattern b)
