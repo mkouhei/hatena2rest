@@ -735,7 +735,8 @@ class HatenaXMLParser(object):
         if m:
             str_line = pat_span_tag.sub(m.group(2), str_line)
 
-        pat_del_tag, m = self.regex_search('(<del .+?>(.+?)</del>)', str_line)
+        pat_del_tag, m = self.regex_search(
+            '(<del( .+?|)>(.+?)</del>)', str_line)
         if m:
             str_line = pat_del_tag.sub('', str_line)
 
