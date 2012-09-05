@@ -15,253 +15,450 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-
-'''
-Hatena diary export data format
----
-0:AUTHOR, 1:TITLE, 3:DATE, 4:CATEGORY, 5:BODY, 6:COMMENT
- unused key: STATUS, ALLOW COMMENTS, CONVERT BREAKS, ALLOW PINGS,
- EXTENDED BODY, EXCERPT, KEYWORDS
-
- COMMENT: 6-1:AUTHOR, 6-2:EMAIL, 6-3:URL, 6-4:DATE, body(without key)
- unused key: IP
-'''
-
-import os
-import shutil
 import re
-import sys
-import htmllib
-import parser
-import view
+import utils
+import xml.etree.ElementTree
 
 
-class Htn2Rest(object):
-    '''
-    Read Hatena diary exported data with MT format
-    '''
+def replace_lexer(key):
+    lexer = {
+        'conf': 'apache',
+        'erlang': 'erlang',
+        'm4': 'make',
+        'log': 'ini',
+        'lisp': 'scheme',
+        'mail': 'ini',
+        'rcs': 'diff',
+        'dmesg': 'console',
+        'strace': 'console',
+        'fstab': 'ini',
+        'tree': 'ini',
+        'grub': 'ini',
+        'emacs': 'scheme',
+        'telnet': 'ini',
+        'fetchmail': 'ini',
+        'dot': 'ini',
+        'git': 'diff',
+        'TeX': 'latex',
+        'Makefile': 'makefile',
+        'sudoers': 'makefile',
+        'crontab': 'sh',
+        'dosbatch': 'bat',
+        'sed': 'sh',
+        'cc': 'c++',
+        'mt': 'sh',
+        'thml': 'ini',
+        'xml': 'text'
+        }
+    if lexer.get(key):
+        return lexer.get(key)
+    else:
+        return 'sh'
 
-    def __init__(self):
-        self.categories = []
-        self.comments = []
-        self.YYYY = ''
-        self.mm = ''
-        self.dd = ''
-        self.HH = ''
-        self.MM = ''
-        self.SS = ''
-        self.c_YYYY = ''
-        self.c_mm = ''
-        self.c_dd = ''
-        self.c_HH = ''
-        self.c_MM = ''
-        self.c_SS = ''
-        self.body = ''
-        self.c_author = ''
-        self.email = ''
-        self.siteurl = ''
-        self.comment = ''
-        self.body_flag = False
-        self.comment_flag = False
-        self.pre_flag = False
 
-    def readFile(self):
-        f = sys.argv[1]
+def convert_hyperlink(string):
+    """Convert hyperlink.
 
-        if os.path.isfile(f):
-            self.f = open(f, 'r')
+    Argument:
 
-    def datas(self):
-        self.datas = self.dates = []
-        dates = ''
-        self.initialize()
-        for line in self.f:
-            if not self.pre_flag:
-                self.getParam(line)
-            self.getBody(line)
-            self.getComment(line)
-            self.closeEntry(line)
+        string: text string of blog entry.
 
-        master = 'out/master.rst.tmp'
-        if not os.path.isfile(master):
-            shutil.copyfile('master.template', master)
+    convert is below
+    from: hatena [url:title:titlestring]
+    to: reST `titlestring <url>`_
+"""
 
-        while len(self.dates) > 0:
-            dates += self.dates.pop()
+    pat_line_head = re.compile(
+        '^(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+    for i in pat_line_head.findall(string):
+        string = string.replace(
+            i[0], '`' + i[3] + ' <' + i[1] + '>`_ ')
 
-        f = open(master, 'a')
-        f.write(dates)
-        f.close()
+    pat_inline = re.compile(
+            '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+    for i in pat_inline.findall(string):
+        string = string.replace(
+            i[0], ' `' + i[3] + ' <' + i[1] + '>`_ ')
 
-    def generateEntry(self):
-        self.entry = {}
-        self.entry.update({
-                "author": self.author,
-                "title": self.title,
-                "border": self.border,
-                "year": self.YYYY,
-                "month": self.mm,
-                "date": self.dd,
-                "hour": self.HH,
-                "min": self.MM,
-                "sec": self.SS,
-                "categories": self.categories,
-                "body": self.body
-                })
+    return string
 
-    def generateComments(self):
-        self.comments.append({
-                "author": self.c_author,
-                "email": self.email,
-                "url": self.siteurl,
-                "year": self.c_YYYY,
-                "month": self.c_mm,
-                "date": self.c_dd,
-                "hour": self.c_HH,
-                "min": self.c_MM,
-                "sec": self.c_SS,
-                "comment": self.comment
-                })
 
-    # Get blog data
-    def getParam(self, line):
+def replace_asterisk(string):
 
-        # get author
-        if self.re.match("^AUTHOR:", line):
-            if self.comment_flag:
-                self.c_author = unicode(line[:-1].split(':')[1], 'utf-8')
-            else:
-                self.author = unicode(line[:-1].split(': ')[1], 'utf-8')
+    # except table header
+    if string.find('|*') < 0:
 
-        # get title
-        elif self.re.match("^TITLE:", line):
-            self.title = unicode(line[:-1].split(': ')[1], 'utf-8')
-            self.border = "#" * len(self.title) * 2
+        string = string.replace('*', '\*')
 
-        # get category
-        elif self.re.match("^CATEGORY:", line):
-            category = unicode(line[:-1].split(': ')[1], 'utf-8')
-            self.categories.append({"category": category})
+        if string.find('\*\*\*') == 0:
+            string = string.replace('\*\*\*', '***', 1)
+        elif string.find('\*\*') == 0:
+            string = string.replace('\*\*', '**', 1)
+        elif string.find('\*') == 0:
+            string = string.replace('\*', '*', 1)
 
-        # get timestamp
-        elif self.re.match("^DATE:", line):
-            self.getDate(line)
+    return string
 
-        # get email (comment)
-        elif self.re.match("^EMAIL:", line):
-            self.email = line[:-1].split(':')[1]
 
-        # get URL (comment)
-        elif self.re.match("^URL:", line):
-            self.siteurl = line[:-1].split(': ')[1]
+def replace_shell_variable(string):
+    pat_shell_var, match_obj = utils.regex_search(
+        '(\${.+?}[a-zA-Z0-9/_\\\*]+)', string)
+    if match_obj:
+        string = pat_shell_var.sub(
+            ' :command:`' + match_obj.group() + '` ', string)
+    return string
 
-    # Get body
-    def getBody(self, line):
-        # internal code-block
-        if self.pre_flag:
-            if self.body_flag and re.match('</pre>', line):
-                self.pre_flag = False
-                self.body += '\n\n'.encode('utf-8')
-            else:
-                if re.match('&#60;', line):
-                    line = re.sub('&#60;', '<', line)
-                elif re.match('&#62;', line):
-                    line = re.sub('&#62;', '>', line)
-                elif re.match('&#34;', line):
-                    line = re.sub('&#34;', '"', line)
-                elif re.match('&#38;', line):
-                    line = re.sub('&#38;', '&', line)
-                self.body += '   ' + self.parseHTML(line)
-        # outernal code-block
+
+def section2rest(string):
+    for i in range(2, 4)[::-1]:
+        """2:section, 3:subsection"""
+        sep = '-' if i == 2 else '^'
+        r, m = utils.regex_search('^(\*){%d}(.*)' % i, string)
+        if m:
+            pat_space = re.compile('^\s+')
+            section_str = pat_space.sub('', m.group(2))
+            string = r.sub(
+                '\n' + section_str + '\n'
+                + sep * utils.length_str(section_str) + '\n', string)
+    return string
+
+
+def footnote2rest(string):
+    """Convert footnote.
+
+    Argument:
+
+        string: text string of blog entry.
+
+    convert is below
+    from: hatena: ((string))
+    to: reST:   inline is [#]_
+                footnote is .. [#] string
+    """
+    str_rest = string
+    footnotes = ''
+    pat_fn = re.compile('(\(\((.+?)\)\))', flags=re.U)
+
+    for i in pat_fn.findall(string):
+        str_rest = str_rest.replace(i[0], ' [#]_ ')
+        if len(pat_fn.findall(string)) > 1:
+            footnotes += '\n.. [#] ' + i[1]
         else:
-            if re.match("^BODY:", line):
-                self.body_flag = True
-                self.body = ''
-            elif self.body_flag:
-                if re.search('^-----$', line):
-                    self.body_flag = False
-                elif re.match("^$", line):
-                    #self.body = self.body
-                    pass
-                elif re.match('<pre>|<pre class(.)*', line):
-                    self.pre_flag = True
-                    self.body += '\n.. code-block:: none\n\n'
-                else:
-                    self.body += self.parseHTML(re.sub('\t*', '', line))
+            footnotes += '.. [#] ' + convert_hyperlink(i[1])
+    return str_rest, footnotes
 
-    # Get timestamp
-    def getDate(self, line):
-        date = line[:-1].split(': ')[1].split(' ')
-        for i in range(3):
-            if i == 0:
-                if self.comment_flag:
-                    self.c_mm = date[i].split('/')[0]
-                    self.c_dd = date[i].split('/')[1]
-                    self.c_YYYY = date[i].split('/')[2]
-                else:
-                    self.mm = date[i].split('/')[0]
-                    self.dd = date[i].split('/')[1]
-                    self.YYYY = date[i].split('/')[2]
-            if i == 1:
-                if self.comment_flag:
-                    self.c_HH = date[i].split(':')[0]
-                    self.c_MM = date[i].split(':')[1]
-                    self.c_SS = date[i].split(':')[2]
-                else:
-                    self.HH = date[i].split(':')[0]
-                    self.MM = date[i].split(':')[1]
-                    self.SS = date[i].split(':')[2]
-            if date[i] == "PM":
-                if self.comment_flag:
-                    self.c_HH = str(int(self.c_HH) + 12)
-                else:
-                    self.HH = str(int(self.HH) + 12)
 
-    # Get comment
-    def getComment(self, line):
-        if self.re.match("^COMMENT:", line):
-            self.comment_flag = True
-            self.comment = ''
-        elif self.comment_flag:
-            if self.re.search('^-----$', line):
-                self.generateComments()
+def extract_categories(str_categories):
+    """Get category of entry.
+
+    Argument:
+
+        str_categories: categories of hatena diary syntax as [a][b][c]
+
+    Return:
+
+        list of categories.
+    """
+    if str_categories:
+        pat_category = re.compile('\[(.+?)\]', flags=re.U)
+        list_category = pat_category.findall(str_categories)
+        return list_category
+
+
+def extract_entry_body(body_text):
+    """Get body of entry.
+
+    Argument:
+
+        body_text: blog entry text.
+    """
+    if body_text.find('\n'):
+        entry_body = body_text.split('\n', 1)[1]
+        return entry_body
+
+
+def handle_comments_element(comments_element):
+    """Handle multiple comment within comments element.
+
+    Argument:
+
+        comments_element: comments element of XML.
+    """
+    comments = [handle_comment_element(comment_element)
+                for comment_element in comments_element]
+    return comments
+
+
+def handle_comment_element(comment_element):
+    """Handles comment element.
+
+    Argument:
+
+        comment_element: comment element of XML.
+    """
+    username = comment_element.find('username').text
+
+    unixtime = comment_element.find('timestamp').text
+    timestamp = utils.unix2ctime(unixtime)
+
+    comment = comment_element.find('body').text
+
+    return username, timestamp, comment
+
+
+def parse_amazlet(xmltree):
+    anchor_element = xmltree.find('div').find('a')
+    img_element = anchor_element.find('img')
+
+    uri = anchor_element.get('href')
+    img_uri = img_element.get('src')
+    img_alt = img_element.get('alt')
+    repl_amazon = ('\n\n`' + img_alt + ' <' + uri + '>`_\n\n')
+    return repl_amazon
+
+
+def parse_twitter(xmltree):
+    uri = [i.get('href') for i in xmltree.find('p')
+           if i.get('title')][0]
+    return uri
+
+
+def parse_slideshare(xmltree):
+    uri = xmltree.find('strong').find('a').get('href')
+    title = xmltree.find('strong').find('a').get('title')
+    repl_slideshare = '\n`' + title + ' <' + uri + '>`_\n'
+    return repl_slideshare
+
+
+def get_columns_width_list(table, columns_width):
+    for row in table:
+        '''
+        row is tuple; (pattern, values)
+        row[0] is pattern
+        row[1] is values list
+        '''
+        for i in range(len(row[1])):
+            if columns_width[i] <= utils.length_str(row[1][i]):
+                columns_width[i] = utils.length_str(row[1][i])
             else:
-                self.getParam(line)
-                if self.re.match("^(?!AUTHOR:|EMAIL:|IP:|URL:|DATE:)", line):
-                    self.comment += self.parseHTML(line[:-1])
-        else:
-            self.comments = []
-            self.comment_flag = False
+                columns_width[i] = columns_width[i]
+    return columns_width
 
-    # Parse HTML format of body text
-    def parseHTML(self, line):
-        parser = parser.HtnParse()
-        parser.feed(unicode(line, 'utf-8'))
-        parser.close()
-        return parser.text
 
-    # closing one blog entry
-    def closeEntry(self, line):
-        if re.search('^--------$', line) and not self.pre_flag:
-            self.generateEntry()
-            v = view.restView(self.entry, self.comments)
-            v.context_list = v.data()
-            dpath = ((str(self.YYYY) + '/' + str(self.mm) +
-                      '/' + str(self.dd) + '/'))
+def merge_row_string(row_str, thead, tbody):
+    merge_row_str = ''
+    pat_row = re.compile('\| \*')
+    if pat_row.search(row_str):
+        row_str = pat_row.sub('|  ', row_str)
+        merge_row_str += thead + '\n' + row_str + thead
+    else:
+        merge_row_str += row_str + tbody
+    return merge_row_str
 
-            outpath = 'out/' + dpath
-            if not os.path.isdir(outpath):
-                os.makedirs(outpath)
 
-            fbasename = str(self.HH) + str(self.MM) + str(self.SS)
-            fname = fbasename + ".rst"
+def remove_span(string):
+    pat_span, m = utils.regex_search(
+        '(<span .+?>(.+?)</span>)', string)
+    if m:
+        string = pat_span.sub(m.group(2), string)
+    return string
 
-            fpath = outpath + fname
 
-            self.dates.append('   ' + dpath + fbasename + '\n')
+def remove_del(string):
+    pat_del, m = utils.regex_search(
+        '(<del( .+?|)>(.+?)</del>)', string)
+    if m:
+        string = pat_del.sub('', string)
+    return string
 
-            with open(fpath, 'w') as f:
-                f.write(v.render().encode('utf-8'))
-                f.close()
 
-            self.__init__()
+def img2image(string):
+    pat_img, m = utils.regex_search('^<img src="(.+?)" .+?(/?)>', string)
+    if m:
+        string = pat_img.sub('\n.. image:: ' + m.group(1)
+                               + '\n\n', string)
+    return string
+
+
+def google_maps(string):
+    if (string.find('http://maps.google.com/') > 0 or
+        string.find('http://maps.google.co.jp/') > 0):
+        pat_google_maps, m = utils.regex_search(
+            '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
+            string)
+        if m:
+            string = pat_google_maps.sub(
+                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', string)
+    return string
+
+
+def gmodules(string):
+    if (string.find('http://gmodules.com') > 0 or
+        string.find('https://gist.github.com') > 0):
+        pat_gmodules, m = utils.regex_search(
+            '^<script .+?></script>', string)
+        if m:
+            string = pat_gmodules.sub(
+                '\n.. raw:: html\n\n    ' + m.group(0) + '\n', string)
+    return string
+
+
+def youtube(string):
+    if string.find('http://www.youtube.com') > 0:
+        pat_youtube, m = utils.regex_search(
+            '(<object .+?>(.*?)</.+?>)', string)
+        if m:
+            string = pat_youtube.sub(m.group(0), string)
+            string = string.replace('\n', '')
+            string = string.replace('&hl=ja', '')
+            string = string.replace('&fs=1', '')
+            string = '\n.. raw:: html\n\n   ' + string + '\n'
+    return string
+
+
+def get_metadata(string):
+    """Get metadata of entry.
+
+    Argument:
+
+        string: title line string of hatena blog entry.
+    """
+    if string:
+        """pattern a)
+
+        timestamp: (\d*)
+        category: (\[.*\])*
+        title with uri: (\[http?://.*\])(.*)
+        """
+        pat_title = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
+                               flags=re.U)
+
+        """pattern b)
+
+        timestamp: (\d*)
+        category: (\[.*\])*
+        title: (.*)
+        """
+        pat_title_with_link = re.compile(
+            '\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
+
+        if pat_title.search(string):
+            # pattern a)
+            timestamp, str_categories, linked_title, str_title = (
+                pat_title.search(string).groups())
+
+            title = convert_hyperlink(
+                linked_title) + str_title
+
+        elif pat_title_with_link.search(string):
+            # pattern b)
+            timestamp, str_categories, title = (
+                pat_title_with_link.search(string).groups())
+
+        return (utils.unix2ctime(timestamp, date_enabled=False),
+                extract_categories(str_categories), title)
+
+
+def parse_blog_parts(string):
+
+    ex_ref_char = re.compile('\&(?!amp;)')
+    string = ex_ref_char.sub('&amp;', string)
+
+    string = string.replace('alt="no image"', '')
+
+    try:
+        xmltree = xml.etree.ElementTree.fromstring(string)
+    except:
+        print string
+
+    if xmltree.get('class') == 'amazlet-box':
+        repl_amazon = parse_amazlet(xmltree)
+        return repl_amazon
+    if xmltree.get('class'):
+        if xmltree.get('class').find('bbpBox') == 0:
+            repl_twitter = parse_twitter(xmltree)
+            return repl_twitter
+    if xmltree.get('id').find('__ss_') == 0:
+        repl_slideshare = parse_slideshare(xmltree)
+        return repl_slideshare
+
+
+def blog_parts(string):
+    html_tags = re.compile('(^(<.+?>(.+?)</.+?>)$)', flags=re.U)
+    m = html_tags.search(string)
+    if m:
+        repl_str = parse_blog_parts(m.group(0).encode('utf-8'))
+        string = html_tags.sub(repl_str, string)
+    return string
+
+
+def tweet(string):
+    pat_comment, m = utils.regex_search(
+        '((<!-- (.+?) -->) (<.+?>(.+?)</.+?> )(<!-- (.+) -->))', string)
+    if m:
+        str_tmp = string.replace(m.group(2), '')
+        str_tmp = str_tmp.replace(m.group(6), '')
+        pat_style, m2 = utils.regex_search(
+            ' <style .+?>(.+?)</style> ', str_tmp)
+        if m2:
+            str_tmp = str_tmp.replace(m2.group(0), '')
+            str_tmp = str_tmp.replace('><', '>\n<')
+            str_tmp = str_tmp.replace('> <', '>\n<')
+            str_tmp = str_tmp.replace('</span>\n', '')
+            pat_tweet = re.compile(
+                '((<.+?>(.+?)</.+?>)(.+?)(<.+?>(.+?)</.+?>))')
+            m3 = pat_tweet.search(str_tmp)
+            if m3:
+                pat_anchor = re.compile('<a.+?>')
+                tweet_msg = (pat_anchor.sub('', m3.group(3)) +
+                             pat_anchor.sub('', m3.group(4))
+                             + pat_anchor.sub('', m3.group(5))
+                             ).replace('</a>', '')
+
+            if parse_blog_parts(str_tmp.encode('utf-8')):
+                uri = parse_blog_parts(str_tmp.encode('utf-8'))
+                repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
+            else:
+                repl_str = ''
+            string = pat_comment.sub(repl_str, string)
+    return string
+
+
+def ditto(string):
+    pat_ditto, m = utils.regex_search(
+        '(<style .+?>.+?</style>)(<div .+?>.+?</div>)', string)
+    if m:
+        ex_ref_char = re.compile('\&(?!amp;)', flags=re.U)
+        string = ex_ref_char.sub('&amp;', m.group(2))
+
+        # get uri
+        uri = ''
+        xmltree = xml.etree.ElementTree.fromstring(string.encode('utf-8'))
+        for p_child in xmltree.find('p').getchildren():
+            for i, p_child_child in enumerate(p_child.getchildren()):
+                if i == 1 and p_child_child.get('href'):
+                    uri = p_child_child.get('href')
+
+        # get tweet message
+        tweet_msg = ''
+        if xmltree.get('class').find('ditto') == 0:
+            span_element = xmltree.find('p').find('span').find('span')
+            for i, v in enumerate(xmltree.itertext()):
+                if i > 1:
+                    pat = re.compile('&nbsp;|via', flags=re.U)
+                    if pat.search(v) > 0:
+                        break
+                    else:
+                        tweet_msg += str(v.encode('utf-8'))
+        repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
+        string = pat_ditto.sub(m.group(), repl_str).decode('utf-8')
+
+    return string
+
+
+def remove_internal_link(string):
+    pat_hatena_internal_link, m = utils.regex_search(
+        '(\[\[|\]\])', string)
+    if m:
+        string = pat_hatena_internal_link.sub('', string)
+    return string

@@ -31,109 +31,8 @@ import re
 from HTMLParser import HTMLParser
 import xml.etree.ElementTree
 import utils
+import convert
 from __init__ import __imgdir__
-
-
-class MtParser(HTMLParser):
-    """
-    For Movable Type format.
-    But not developped now. not recomment to use this.
-    """
-
-    def __init__(self):
-        """Initialize some parameters."""
-
-        HTMLParser.__init__(self)
-        self.text = ''
-        self.temp = ''
-        self.flag = ''
-        self.fn_flag = ''
-        self.nofn_flag = ''
-        self.list_flag = ''
-        self.img_src = ''
-        self.img_alt = ''
-
-    def handle_starttag(self, tag, attrs):
-        """Set flag when detecting HTML start tags."""
-
-        attrs = dict(attrs)
-        if tag == 'style':
-            self.flag = 1
-        if tag == 'div' and re.match('amazlet', str(attrs.get('class'))):
-            self.flag = 1
-        if tag == 'h4':
-            self.flag = 'lv2'
-        if tag == 'h5':
-            self.flag = 'lv3'
-        if tag == 'div' and str(attrs.get('class')) == 'footnote':
-            self.fn_flag = 1
-        if tag == 'p' and str(attrs.get('class')) == 'footnote':
-            self.flag = 'fn'
-        if tag == 'span' and str(attrs.get('class')) == 'footnote':
-            self.flag = 'span-fn'
-        if tag == 'ul':
-            self.list_flag = 'ul'
-        if tag == 'ol':
-            self.list_flag = 'ol'
-        if tag == 'li':
-            self.flag = 'li'
-        if tag == 'a':
-            self.nofn_flag = 1
-        if tag == 'img':
-            self.img_src = str(attrs.get('src'))
-            if attrs.get('alt'):
-                self.img_alt = attrs.get('alt')
-
-    def handle_data(self, data):
-        """
-        Convert html text to rest format data.
-
-        Argument:
-
-            data: a line of string for MT format text data.
-        """
-
-        if self.flag == 1:
-            data = ''
-        elif self.flag == 'lv2':
-            self.text = (self.text + '\n' + data + '\n' +
-                         '*' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
-        elif self.flag == 'lv3':
-            self.text = (self.text + '\n' + data + '\n' +
-                         '=' * (len(data.encode('utf-8')) - 2) * 2 + '\n\n')
-        elif self.fn_flag:
-            self.text = self.text + '\n\n'
-        elif self.flag == 'fn':
-            if self.nofn_flag:
-                data = ''
-            else:
-                self.text = self.text + '.. [#] ' + data
-        elif self.flag == 'span-fn':
-            if self.nofn_flag:
-                self.text = self.text + ' [#]_ '
-        elif self.flag == 'li':
-            self.text = self.text + '* ' + data
-            #self.text = self.text + '#. ' + data + '\n'
-        elif self.img_src:
-            if self.img_alt:
-                img_path = utils.retrieve_image(self.img_src,
-                                                self.dstdir + __imgdir__,
-                                                self.retrieve_image_flag)
-                self.text = (self.text + '\n.. image:: ' + __imgdir__ +
-                             img_path + '\n   :alt: ' + self.img_alt + '\n')
-            else:
-                self.text = (self.text + '\n.. image:: ' + __imgdir__ +
-                             img_path + '\n')
-        else:
-            self.text += data
-
-    def handle_endtag(self, tag):
-        """Clear flags when detecting HTML close tags."""
-        if (tag == 'h4' or tag == 'h5' or tag == 'p'
-            or tag == 'span' or tag == 'li'):
-            self.flag = ''
-        if tag == 'a':
-            self.nofn_flag = 0
 
 
 class HatenaXMLParser(object):
@@ -181,7 +80,7 @@ class HatenaXMLParser(object):
         comments = None
         # write comments to reST file.
         if comments_element is not None:
-            comments = self.handle_comments_element(comments_element)
+            comments = convert.handle_comments_element(comments_element)
 
         return dirpath, bodies, comments
 
@@ -226,29 +125,12 @@ class HatenaXMLParser(object):
             body_text: text string of one blog entry.
         """
         if body_text:
-            timestamp, categories, title = self.get_metadata(
+            timestamp, categories, title = convert.get_metadata(
                 body_text.split('\n', 1)[0])
-            entry_body = self.extract_entry_body(body_text)
+            entry_body = convert.extract_entry_body(body_text)
             rested_body = self.hatena2rest(entry_body)
 
             return title, timestamp, categories, rested_body
-
-    def regex_search(self, pattern, string):
-        """Prepare compilation of regex.
-
-        Arguments:
-
-            pattern: regex pattern
-            string: processing target string
-
-        return:
-
-            pat_regex: compiled regex object
-            match_obj: searching result object
-        """
-        pat_regex = re.compile(pattern, flags=re.U)
-        match_obj = pat_regex.search(string)
-        return pat_regex, match_obj
 
     def hatena2rest(self, str_body):
         """Convert body text of day entry to rest format.
@@ -263,7 +145,7 @@ class HatenaXMLParser(object):
         merge_string = ''
 
         def convert_start_ref(string_line):
-            pat_start_ref, match_obj = self.regex_search(
+            pat_start_ref, match_obj = utils.regex_search(
                 '^>((http|https)://(.+?)|)>$', string_line)
             if match_obj:
                 self.ref_flag = True
@@ -279,7 +161,7 @@ class HatenaXMLParser(object):
             return string_line
 
         def convert_end_ref(string_line):
-            pat_end_ref, match_obj = self.regex_search(
+            pat_end_ref, match_obj = utils.regex_search(
                 '^<<', string_line)
             if match_obj:
                 string_line = pat_end_ref.sub('\n\n', string_line)
@@ -295,7 +177,7 @@ class HatenaXMLParser(object):
 
                 string_line: parsing target string.
             """
-            pat_code_close, match_obj = self.regex_search(
+            pat_code_close, match_obj = utils.regex_search(
                 '^\|\|<|^\|<$', string_line)
             if match_obj:
                 string_line = pat_code_close.sub('\n', string_line)
@@ -306,13 +188,13 @@ class HatenaXMLParser(object):
             return string_line
 
         def parse_start_codeblock(string_line):
-            pat_code_open, match_obj = self.regex_search(
+            pat_code_open, match_obj = utils.regex_search(
                 '>\|([a-zA-Z0-9]*)\|$|>\|()$', string_line)
             if match_obj:
                 # code block opening
                 self.code_flag = True
                 if match_obj.group(1):
-                    lexer_str = replace_lexer(match_obj.group(1))
+                    lexer_str = convert.replace_lexer(match_obj.group(1))
                     string_line = pat_code_open.sub(
                         '\n.. code-block:: ' + lexer_str + '\n',
                         string_line)
@@ -321,43 +203,8 @@ class HatenaXMLParser(object):
                         '\n.. code-block:: sh\n', string_line)
             return string_line
 
-        def replace_lexer(key):
-            lexer = {
-                'conf': 'apache',
-                'erlang': 'erlang',
-                'm4': 'make',
-                'log': 'ini',
-                'lisp': 'scheme',
-                'mail': 'ini',
-                'rcs': 'diff',
-                'dmesg': 'console',
-                'strace': 'console',
-                'fstab': 'ini',
-                'tree': 'ini',
-                'grub': 'ini',
-                'emacs': 'scheme',
-                'telnet': 'ini',
-                'fetchmail': 'ini',
-                'dot': 'ini',
-                'git': 'diff',
-                'TeX': 'latex',
-                'Makefile': 'makefile',
-                'sudoers': 'makefile',
-                'crontab': 'sh',
-                'dosbatch': 'bat',
-                'sed': 'sh',
-                'cc': 'c++',
-                'mt': 'sh',
-                'thml': 'ini',
-                'xml': 'text'
-                }
-            if lexer.get(key):
-                return lexer.get(key)
-            else:
-                return 'sh'
-
         def extract_tables(string_line, table, tables):
-            pat_table, match_obj = self.regex_search(
+            pat_table, match_obj = utils.regex_search(
                 '^\|(.+?)\|$', string_line)
             if match_obj:
                 row_data = (match_obj.group(0),
@@ -374,32 +221,12 @@ class HatenaXMLParser(object):
                     self.table_flag = False
             return table, tables
 
-        def replace_asterisk(string_line):
-            # except table header
-            if string_line.find('|*') < 0:
-                string_line = string_line.replace('*', '\*')
-                if string_line.find('\*\*\*') == 0:
-                    string_line = string_line.replace('\*\*\*', '***', 1)
-                elif string_line.find('\*\*') == 0:
-                    string_line = string_line.replace('\*\*', '**', 1)
-                elif string_line.find('\*') == 0:
-                    string_line = string_line.replace('\*', '*', 1)
-            return string_line
-
-        def replace_shell_variable(string_line):
-            pat_shell_var, match_obj = self.regex_search(
-                '(\${.+?}[a-zA-Z0-9/_\\\*]+)', string_line)
-            if match_obj:
-                string_line = pat_shell_var.sub(
-                    ' :command:`' + match_obj.group() + '` ', string_line)
-            return string_line
-
         if str_body:
             # str_line exclude '\n'
             for str_line in str_body.split('\n'):
 
                 # convert hyperlink
-                str_line = self.convert_hyperlink(str_line)
+                str_line = convert.convert_hyperlink(str_line)
 
                 # handle line inside code block
                 if self.code_flag:
@@ -410,22 +237,22 @@ class HatenaXMLParser(object):
                     str_line = parse_start_codeblock(str_line)
 
                     # replace '*' to '\*' of inline
-                    str_line = replace_asterisk(str_line)
+                    str_line = convert.replace_asterisk(str_line)
 
                     # listing
                     str_line = self.listing2rest(str_line)
 
                     # convert shell var
-                    str_line = replace_shell_variable(str_line)
+                    str_line = convert.replace_shell_variable(str_line)
 
                     # section , subsection
-                    str_line = self.section2rest(str_line)
+                    str_line = convert.section2rest(str_line)
 
                     # convert image from hatena fotolife
                     str_line = self.fotolife2rest(str_line)
 
                     # convert footnote
-                    str_line, footnotes_ = self.footnote2rest(str_line)
+                    str_line, footnotes_ = convert.footnote2rest(str_line)
                     if footnotes_:
                         footnotes += footnotes_ + '\n'
 
@@ -438,8 +265,8 @@ class HatenaXMLParser(object):
                     # extract table data
                     table, tables = extract_tables(str_line, table, tables)
 
-                    # remove hatena internal link
-                    str_line = self.remove_hatena_internal_link(str_line)
+                    # remove internal_link and convert blog parts
+                    str_line = self.convert_blog_parts(str_line)
 
                 merge_string += utils.remove_element_entity(str_line) + '\n'
 
@@ -449,20 +276,6 @@ class HatenaXMLParser(object):
             return merge_string + '\n' + footnotes
 
     def table2rest(self, tables, merge_string):
-
-        def get_columns_width_list(table, columns_width):
-            for row in table:
-                '''
-                row is tuple; (pattern, values)
-                row[0] is pattern
-                row[1] is values list
-                '''
-                for i in range(len(row[1])):
-                    if columns_width[i] <= utils.length_str(row[1][i]):
-                        columns_width[i] = utils.length_str(row[1][i])
-                    else:
-                        columns_width[i] = columns_width[i]
-            return columns_width
 
         def convert_row(row, row_str, thead, tbody):
 
@@ -485,16 +298,6 @@ class HatenaXMLParser(object):
                         tbody += ("+" + "-" * (columns_width[i] + 2) + '+')
             return (row_str, thead, tbody)
 
-        def merge_row_string(row_str, thead, tbody):
-            merge_row_str = ''
-            prog = re.compile('\| \*')
-            if prog.search(row_str):
-                row_str = prog.sub('|  ', row_str)
-                merge_row_str += thead + '\n' + row_str + thead
-            else:
-                merge_row_str += row_str + tbody
-            return merge_row_str
-
         # replace table
         for table in tables:
             '''
@@ -508,7 +311,8 @@ class HatenaXMLParser(object):
             columns_width = [0] * len(table[1][1])
 
             # get columns width
-            columns_width = get_columns_width_list(table, columns_width)
+            columns_width = convert.get_columns_width_list(
+                table, columns_width)
 
             # columns_width has max values when this step
 
@@ -520,39 +324,13 @@ class HatenaXMLParser(object):
                 row_str, thead, tbody = convert_row(row, row_str, thead, tbody)
 
                 # merge row string with row
-                merge_row_str = merge_row_string(row_str, thead, tbody)
+                merge_row_str = convert.merge_row_string(row_str, thead, tbody)
 
                 # merge string with row string
                 merge_string = merge_string.replace(
                     row[0] + '\n', merge_row_str, 1)
 
         return merge_string
-
-    def convert_hyperlink(self, str_line):
-        """Convert hyperlink.
-
-        Argument:
-
-            string: text string of blog entry.
-
-        convert is below
-        from: hatena [url:title:titlestring]
-          to: reST `titlestring <url>`_
-        """
-
-        pat_line_head = re.compile(
-            '^(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
-        for i in pat_line_head.findall(str_line):
-            str_line = str_line.replace(
-                i[0], '`' + i[3] + ' <' + i[1] + '>`_ ')
-
-        pat_inline = re.compile(
-            '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
-        for i in pat_inline.findall(str_line):
-            str_line = str_line.replace(
-                i[0], ' `' + i[3] + ' <' + i[1] + '>`_ ')
-
-        return str_line
 
     def fotolife2rest(self, str_line):
         """Convert fotolife to image directive.
@@ -566,7 +344,7 @@ class HatenaXMLParser(object):
           to: reST .. image:: imgsrc
                       :target: uri
         """
-        r, m = self.regex_search(
+        r, m = utils.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image(|:.+?)\]', str_line)
         if m:
             img_uri_partial = ('http://cdn-ak.f.st-hatena.com/images/fotolife/'
@@ -589,7 +367,7 @@ class HatenaXMLParser(object):
             2 is -- or ++
             1 is - or +
             """
-            r, m = self.regex_search(
+            r, m = utils.regex_search(
                 '(^(-{%d}))|(^(\+{%d}))' % (i, i), str_line)
             if m:
                 item = ('  ' * (i - 1) + '* ' if m.group(1)
@@ -603,172 +381,33 @@ class HatenaXMLParser(object):
         str_line += '\n'
         return str_line
 
-    def section2rest(self, str_line):
-        for i in range(2, 4)[::-1]:
-            """2:section, 3:subsection"""
-            sep = '-' if i == 2 else '^'
-            r, m = self.regex_search('^(\*){%d}(.*)' % i, str_line)
-            if m:
-                pat_space = re.compile('^\s+')
-                section_str = pat_space.sub('', m.group(2))
-                str_line = r.sub(
-                    '\n' + section_str + '\n'
-                    + sep * utils.length_str(section_str) + '\n', str_line)
-        return str_line
+    def convert_blog_parts(self, str_line):
 
-    def footnote2rest(self, str_line):
-        """Convert footnote.
-
-        Argument:
-
-            string: text string of blog entry.
-
-        convert is below
-        from: hatena: ((string))
-          to: reST:   inline is [#]_
-                    footnote is .. [#] string
-        """
-        str_rest = str_line
-        footnotes = ''
-        prog = re.compile('(\(\((.+?)\)\))', flags=re.U)
-
-        for i in prog.findall(str_line):
-            str_rest = str_rest.replace(i[0], ' [#]_ ')
-            if len(prog.findall(str_line)) > 1:
-                footnotes += '\n.. [#] ' + i[1]
-            else:
-                footnotes += '.. [#] ' + self.convert_hyperlink(i[1])
-        return str_rest, footnotes
-
-    def table(self, string):
-        """Convert table.
-
-        Argument:
-
-            string: text string of blog entry.
-        """
-        prog = re.compile('^\|(.+?)\|$', flags=re.U)
-        row_data = prog.findall(string)[0].split('|')
-
-    def get_metadata(self, str_title_line):
-        """Get metadata of entry.
-
-        Argument:
-
-            string: title line string of hatena blog entry.
-        """
-        if str_title_line:
-            '''pattern a)
-
-            timestamp: (\d*)
-            category: (\[.*\])*
-            title with uri: (\[http?://.*\])(.*)
-            '''
-            pat_title = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
-                              flags=re.U)
-
-            '''pattern b)
-
-            timestamp: (\d*)
-            category: (\[.*\])*
-            title: (.*)
-            '''
-            pat_title_with_link = re.compile(
-                '\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
-
-            if pat_title.search(str_title_line):
-                # pattern a)
-                timestamp, str_categories, linked_title, str_title = (
-                    pat_title.search(str_title_line).groups())
-
-                title = self.convert_hyperlink(
-                    linked_title) + str_title
-
-            elif pat_title_with_link.search(str_title_line):
-                # pattern b)
-                timestamp, str_categories, title = (
-                    pat_title_with_link.search(str_title_line).groups())
-
-            return (utils.unix2ctime(timestamp, date_enabled=False),
-                    self.extract_categories(str_categories), title)
-
-    def remove_hatena_internal_link(self, str_line):
-        pat_hatena_internal_link, m = self.regex_search(
-            '(\[\[|\]\])', str_line)
-        if m:
-            str_line = pat_hatena_internal_link.sub('', str_line)
+        # remove hatena internal link
+        str_line = convert.remove_internal_link(str_line)
 
         # for ditto
-        pat_ditto, m = self.regex_search(
-            '(<style .+?>.+?</style>)(<div .+?>.+?</div>)',
-            str_line)
-        if m:
-            ex_ref_char = re.compile('\&(?!amp;)', flags=re.U)
-            string = ex_ref_char.sub('&amp;', m.group(2))
+        str_line = convert.ditto(str_line)
 
-            # get uri
-            uri = ''
-            xmltree = xml.etree.ElementTree.fromstring(string.encode('utf-8'))
-            for p_child in xmltree.find('p').getchildren():
-                for i, p_child_child in enumerate(p_child.getchildren()):
-                    if i == 1 and p_child_child.get('href'):
-                        uri = p_child_child.get('href')
-            #utils.logging(uri, debug)
+        # remove span element
+        str_line = convert.remove_span(str_line)
 
-            # get tweet message
-            tweet_msg = ''
-            if xmltree.get('class').find('ditto') == 0:
-                span_element = xmltree.find('p').find('span').find('span')
-                for i, v in enumerate(xmltree.itertext()):
-                    if i > 1:
-                        pat = re.compile('&nbsp;|via', flags=re.U)
-                        if pat.search(v) > 0:
-                            break
-                        else:
-                            tweet_msg += str(v.encode('utf-8'))
-            #utils.logging(tweet_msg, debug)
-            repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
-            str_line = pat_ditto.sub(m.group(), repl_str).decode('utf-8')
-
-        pat_span_tag, m = self.regex_search(
-            '(<span .+?>(.+?)</span>)', str_line)
-        if m:
-            str_line = pat_span_tag.sub(m.group(2), str_line)
-
-        pat_del_tag, m = self.regex_search(
-            '(<del( .+?|)>(.+?)</del>)', str_line)
-        if m:
-            str_line = pat_del_tag.sub('', str_line)
+        # remove del element
+        str_line = convert.remove_del(str_line)
 
         # for google maps
-        if (str_line.find('http://maps.google.com/') > 0 or
-            str_line.find('http://maps.google.co.jp/') > 0):
-            pat_google_maps, m = self.regex_search(
-                '(<iframe .+?></iframe><br />(<.+?>.+?</.+?>)(.*?)</.+?>)',
-                str_line)
-            if m:
-                str_line = pat_google_maps.sub(
-                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+        str_line = convert.google_maps(str_line)
 
         # for gmodules
-        if (str_line.find('http://gmodules.com') > 0 or
-            str_line.find('https://gist.github.com') > 0):
-            pat_gmodules, m = self.regex_search(
-                '^<script .+?></script>', str_line)
-            if m:
-                str_line = pat_gmodules.sub(
-                    '\n.. raw:: html\n\n    ' + m.group(0) + '\n', str_line)
+        str_line = convert.gmodules(str_line)
 
         # for img element
-        pat_img, m = self.regex_search('^<img src="(.+?)" .+?(/?)>', str_line)
-        if m:
-            str_line = pat_img.sub('\n.. image:: ' + m.group(1)
-                                   + '\n\n', str_line)
+        str_line = convert.img2image(str_line)
 
-        # for image
-        pat_amazon, m = self.regex_search('amazlet', str_line)
+        # for amazlet
+        pat_amazon, m = utils.regex_search('amazlet', str_line)
         if not m:
-            pat_image, m = self.regex_search(
+            pat_image, m = utils.regex_search(
                 '(<a href="(.+?)" .+?><img src="(.+?)".*?/?></.+?>)', str_line)
             if m:
                 img_path = utils.retrieve_image(m.group(3),
@@ -778,153 +417,16 @@ class HatenaXMLParser(object):
                     '\n.. image:: ' + __imgdir__ + img_path + '\n   :target: '
                     + m.group(2) + '\n\n', str_line)
 
-        # for object
-        if str_line.find('http://www.youtube.com') > 0:
-            pat_youtube, m = self.regex_search(
-                '(<object .+?>(.*?)</.+?>)', str_line)
-            if m:
-                str_line = pat_youtube.sub(m.group(0), str_line)
-                str_line = str_line.replace('\n', '')
-                str_line = str_line.replace('&hl=ja', '')
-                str_line = str_line.replace('&fs=1', '')
-                str_line = '\n.. raw:: html\n\n   ' + str_line + '\n'
+        # for youtube
+        str_line = convert.youtube(str_line)
 
         # for tweet
-        pat_comment, m = self.regex_search(
-            '((<!-- (.+?) -->) (<.+?>(.+?)</.+?> )(<!-- (.+) -->))', str_line)
-        if m:
-            str_tmp = str_line.replace(m.group(2), '')
-            str_tmp = str_tmp.replace(m.group(6), '')
-            pattern_style, m2 = self.regex_search(
-                ' <style .+?>(.+?)</style> ', str_tmp)
-            if m2:
-                str_tmp = str_tmp.replace(m2.group(0), '')
-                str_tmp = str_tmp.replace('><', '>\n<')
-                str_tmp = str_tmp.replace('> <', '>\n<')
-                str_tmp = str_tmp.replace('</span>\n', '')
-                pat_tweet = re.compile(
-                    '((<.+?>(.+?)</.+?>)(.+?)(<.+?>(.+?)</.+?>))')
-                m3 = pat_tweet.search(str_tmp)
-                if m3:
-                    pat_anchor = re.compile('<a.+?>')
-                    tweet_msg = (pat_anchor.sub('', m3.group(3)) +
-                                 pat_anchor.sub('', m3.group(4))
-                                 + pat_anchor.sub('', m3.group(5))
-                                 ).replace('</a>', '')
-
-                if self.parse_blog_parts(str_tmp.encode('utf-8')):
-                    uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
-                    repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
-                else:
-                    repl_str = ''
-                str_line = pat_comment.sub(repl_str, str_line)
-                return str_line
+        str_line = convert.tweet(str_line)
 
         # for blogparts
-        html_tags = re.compile('(^(<.+?>(.+?)</.+?>)$)', flags=re.U)
-        m = html_tags.search(str_line)
-        if m:
-            repl_str = self.parse_blog_parts(m.group(0).encode('utf-8'))
-            str_line = html_tags.sub(repl_str, str_line)
+        str_line = convert.blog_parts(str_line)
+
         return str_line
-
-    def parse_blog_parts(self, string):
-
-        ex_ref_char = re.compile('\&(?!amp;)')
-        string = ex_ref_char.sub('&amp;', string)
-
-        string = string.replace('alt="no image"', '')
-
-        def parse_amazlet(xmltree):
-            anchor_element = xmltree.find('div').find('a')
-            img_element = anchor_element.find('img')
-
-            uri = anchor_element.get('href')
-            img_uri = img_element.get('src')
-            img_alt = img_element.get('alt')
-            repl_amazon = ('\n\n`' + img_alt + ' <' + uri + '>`_\n\n')
-            return repl_amazon
-
-        def parse_twitter(xmltree):
-            uri = [i.get('href') for i in xmltree.find('p')
-                   if i.get('title')][0]
-            return uri
-
-        def parse_slideshare(xmltree):
-            uri = xmltree.find('strong').find('a').get('href')
-            title = xmltree.find('strong').find('a').get('title')
-            repl_slideshare = '\n`' + title + ' <' + uri + '>`_\n'
-            return repl_slideshare
-
-        try:
-            xmltree = xml.etree.ElementTree.fromstring(string)
-        except:
-            print string
-
-        if xmltree.get('class') == 'amazlet-box':
-            repl_amazon = parse_amazlet(xmltree)
-            return repl_amazon
-        if xmltree.get('class'):
-            if xmltree.get('class').find('bbpBox') == 0:
-                repl_twitter = parse_twitter(xmltree)
-                return repl_twitter
-        if xmltree.get('id').find('__ss_') == 0:
-            repl_slideshare = parse_slideshare(xmltree)
-            return repl_slideshare
-
-    def extract_categories(self, str_categories):
-        """Get category of entry.
-
-        Argument:
-
-            str_categories: categories of hatena diary syntax as [a][b][c]
-
-        Return:
-
-           list of categories.
-        """
-        if str_categories:
-            pat_category = re.compile('\[(.+?)\]', flags=re.U)
-            list_category = pat_category.findall(str_categories)
-            return list_category
-
-    def extract_entry_body(self, body_text):
-        """Get body of entry.
-
-        Argument:
-
-            body_text: blog entry text.
-        """
-        if body_text.find('\n'):
-            entry_body = body_text.split('\n', 1)[1]
-            return entry_body
-
-    def handle_comments_element(self, comments_element):
-        """Handle multiple comment within comments element.
-
-        Argument:
-
-            comments_element: comments element of XML.
-        """
-        comments = [self.handle_comment_element(comment_element)
-                         for comment_element in comments_element]
-        return comments
-
-    def handle_comment_element(self, comment_element):
-        """Handles comment element.
-
-        Argument:
-
-            comment_element: comment element of XML.
-        """
-        username = comment_element.find('username').text
-
-        unixtime = comment_element.find('timestamp').text
-        timestamp = utils.unix2ctime(unixtime)
-
-        comment = comment_element.find('body').text
-
-        return username, timestamp, comment
 
     def comment2rest(self, comment_text):
         """Convert comment text to reST format.

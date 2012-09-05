@@ -194,3 +194,21 @@ def logging(msg, debug=False):
             f.write('##### ' + datetime.now() + ' #####\n')
             f.write(msg)
             f.write('\n')
+
+
+def regex_search(pattern, string):
+    """Prepare compilation of regex.
+
+    Arguments:
+
+        pattern: regex pattern
+        string: processing target string
+
+    return:
+
+        pat_regex: compiled regex object
+        match_obj: searching result object
+    """
+    pat_regex = re.compile(pattern, flags=re.U)
+    match_obj = pat_regex.search(string)
+    return pat_regex, match_obj
