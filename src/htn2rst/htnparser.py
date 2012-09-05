@@ -317,37 +317,38 @@ class HatenaXMLParser(object):
 
         def replace_lexer(key):
             lexer = {
-                'conf': 'ini',
-                'erlang': 'ini',
-                'm4': 'ini',
+                'conf': 'apache',
+                'erlang': 'erlang',
+                'm4': 'make',
                 'log': 'ini',
-                'lisp': 'ini',
+                'lisp': 'scheme',
                 'mail': 'ini',
                 'rcs': 'diff',
-                'dmesg': 'ini',
-                'strace': 'ini',
+                'dmesg': 'console',
+                'strace': 'console',
                 'fstab': 'ini',
                 'tree': 'ini',
                 'grub': 'ini',
-                'emacs': 'ini',
+                'emacs': 'scheme',
                 'telnet': 'ini',
                 'fetchmail': 'ini',
                 'dot': 'ini',
-                'git': 'ini',
-                'TeX': 'ini',
-                'Makefile': 'ini',
-                'sudoers': 'ini',
-                'crontab': 'ini',
-                'dosbatch': 'ini',
-                'sed': 'ini',
-                'cc': 'ini',
-                'mt': 'ini',
-                'thml': 'ini'
+                'git': 'diff',
+                'TeX': 'latex',
+                'Makefile': 'makefile',
+                'sudoers': 'makefile',
+                'crontab': 'sh',
+                'dosbatch': 'bat',
+                'sed': 'sh',
+                'cc': 'c++',
+                'mt': 'sh',
+                'thml': 'ini',
+                'xml': 'text'
                 }
             if lexer.get(key):
                 return lexer.get(key)
             else:
-                return 'ini'
+                return 'sh'
 
         def extract_tables(string_line, table, tables):
             pat_table, match_obj = self.regex_search(
