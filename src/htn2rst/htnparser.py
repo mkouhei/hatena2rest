@@ -264,12 +264,18 @@ class HatenaXMLParser(object):
 
         def convert_start_ref(string_line):
             pat_start_ref, match_obj = self.regex_search(
-                '^>((http|https)://(.+?))>$', string_line)
+                '^>((http|https)://(.+?)|)>$', string_line)
             if match_obj:
                 self.ref_flag = True
+                if match_obj.group(1):
+                    repl_str = '\n' + match_obj.group(1) + '::\n\n'
+                else:
+                    repl_str = '\n::'
+
                 string_line = pat_start_ref.sub(
-                    '\n' + match_obj.group(1) + ' ::\n\n',
+                    repl_str,
                     string_line)
+
             return string_line
 
         def convert_end_ref(string_line):
@@ -721,7 +727,7 @@ class HatenaXMLParser(object):
                         else:
                             tweet_msg += str(v.encode('utf-8'))
             #utils.logging(tweet_msg, debug)
-            repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+            repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
             str_line = pat_ditto.sub(m.group(), repl_str).decode('utf-8')
 
         pat_span_tag, m = self.regex_search(
@@ -807,7 +813,7 @@ class HatenaXMLParser(object):
 
                 if self.parse_blog_parts(str_tmp.encode('utf-8')):
                     uri = self.parse_blog_parts(str_tmp.encode('utf-8'))
-                    repl_str = '\n' + uri + ' ::\n\n   ' + tweet_msg + '\n\n'
+                    repl_str = '\n' + uri + '::\n\n   ' + tweet_msg + '\n\n'
                 else:
                     repl_str = ''
                 str_line = pat_comment.sub(repl_str, str_line)
