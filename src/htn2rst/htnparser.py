@@ -635,7 +635,7 @@ class HatenaXMLParser(object):
             if len(prog.findall(str_line)) > 1:
                 footnotes += '\n.. [#] ' + i[1]
             else:
-                footnotes += '.. [#] ' + i[1]
+                footnotes += '.. [#] ' + self.convert_hyperlink(i[1])
         return str_rest, footnotes
 
     def table(self, string):
