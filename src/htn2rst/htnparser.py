@@ -533,24 +533,20 @@ class HatenaXMLParser(object):
         from: hatena [url:title:titlestring]
           to: reST `titlestring <url>`_
         """
-        str_rested = str_line
+
         pat_line_head = re.compile(
             '^(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+        for i in pat_line_head.findall(str_line):
+            str_line = str_line.replace(
+                i[0], '`' + i[3] + ' <' + i[1] + '>`_ ')
 
         pat_inline = re.compile(
-            '(.+?)(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+            '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
+        for i in pat_inline.findall(str_line):
+            str_line = str_line.replace(
+                i[0], ' `' + i[3] + ' <' + i[1] + '>`_ ')
 
-        m = pat_line_head.search(str_line)
-        if m:
-            str_rested = str_rested.replace(
-                m.group(1), '`' + m.group(4) + ' <' + m.group(2) + '>`_ ')
-
-        m2 = pat_inline.search(str_line)
-        if m2:
-            str_rested = str_rested.replace(
-                m2.group(2), ' `' + m2.group(5) + ' <' + m2.group(3) + '>`_ ')
-
-        return str_rested
+        return str_line
 
     def fotolife2rest(self, str_line):
         """Convert fotolife to image directive.
