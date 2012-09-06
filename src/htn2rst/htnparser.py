@@ -277,26 +277,24 @@ class HatenaXMLParser(object):
 
     def table2rest(self, tables, merge_string):
 
-        def convert_row(row, row_str, thead, tbody):
+        def convert_row(row, row_str, border):
 
             for i in range(len(row[1])):
                 # numbers of values
                 if i < len(row[1]) - 1:
-                    row_str += ("| " + row[1][i] +
+                    row_str += ("  " + row[1][i] +
                                 " " * (columns_width[i] -
                                        utils.length_str(row[1][i])) + ' ')
                     if row_i == 0:
-                        thead += ("+" + "=" * (columns_width[i] + 2))
-                        tbody += ("+" + "-" * (columns_width[i] + 2))
+                        border += (" " + "=" * (columns_width[i] + 2))
                 else:
-                    row_str += ("| " + row[1][i] +
+                    row_str += ("  " + row[1][i] +
                                 " " * (columns_width[i]
                                        - utils.length_str(row[1][i]))
-                                + ' |\n')
+                                + '  ')
                     if row_i == 0:
-                        thead += ("+" + "=" * (columns_width[i] + 2) + '+')
-                        tbody += ("+" + "-" * (columns_width[i] + 2) + '+')
-            return (row_str, thead, tbody)
+                        border += (" " + "=" * (columns_width[i] + 2) + ' ')
+            return (row_str, border)
 
         # replace table
         for table in tables:
@@ -305,8 +303,7 @@ class HatenaXMLParser(object):
             table is list; [row, row]
             '''
             replace_line = ''
-            thead = ''
-            tbody = ''
+            border = ''
 
             columns_width = [0] * len(table[1][1])
 
@@ -315,20 +312,22 @@ class HatenaXMLParser(object):
                 table, columns_width)
 
             # columns_width has max values when this step
-
             for row_i, row in enumerate(table):
 
                 row_str = ''
-
-                # get row string, row head border, row bottom border
-                row_str, thead, tbody = convert_row(row, row_str, thead, tbody)
+                # get row string, row border
+                row_str, border = convert_row(row, row_str, border)
 
                 # merge row string with row
-                merge_row_str = convert.merge_row_string(row_str, thead, tbody)
+                merge_row_str = convert.merge_row_string(row_str, border)
 
                 # merge string with row string
-                merge_string = merge_string.replace(
-                    row[0] + '\n', merge_row_str, 1)
+                if row_i == len(table) - 1:
+                    merge_string = merge_string.replace(
+                        row[0] + '\n', merge_row_str + '\n' + border, 1)
+                else:
+                    merge_string = merge_string.replace(
+                        row[0] + '\n', merge_row_str, 1)
 
         return merge_string
 

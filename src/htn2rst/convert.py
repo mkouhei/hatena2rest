@@ -245,14 +245,14 @@ def get_columns_width_list(table, columns_width):
     return columns_width
 
 
-def merge_row_string(row_str, thead, tbody):
+def merge_row_string(row_str, border):
     merge_row_str = ''
-    pat_row = re.compile('\| \*')
+    pat_row = re.compile(' \*')
     if pat_row.search(row_str):
-        row_str = pat_row.sub('|  ', row_str)
-        merge_row_str += thead + '\n' + row_str + thead
+        row_str = pat_row.sub('  ', row_str)
+        merge_row_str += border + '\n' + row_str + '\n' + border
     else:
-        merge_row_str += row_str + tbody
+        merge_row_str += row_str
     return merge_row_str
 
 
