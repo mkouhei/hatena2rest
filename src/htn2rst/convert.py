@@ -230,6 +230,25 @@ def parse_slideshare(xmltree):
     return repl_slideshare
 
 
+def convert_row(row, row_i, columns_width, row_str, border):
+    for i in range(len(row[1])):
+        # numbers of values
+        if i < len(row[1]) - 1:
+            row_str += ("  " + row[1][i] +
+                        " " * (columns_width[i] -
+                               utils.length_str(row[1][i])) + ' ')
+            if row_i == 0:
+                border += (" " + "=" * (columns_width[i] + 2))
+        else:
+            row_str += ("  " + row[1][i] +
+                        " " * (columns_width[i]
+                               - utils.length_str(row[1][i]))
+                        + '  ')
+            if row_i == 0:
+                border += (" " + "=" * (columns_width[i] + 2) + ' ')
+    return (row_str, border)
+
+
 def get_columns_width_list(table, columns_width):
     for row in table:
         '''

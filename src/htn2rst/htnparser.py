@@ -277,25 +277,6 @@ class HatenaXMLParser(object):
 
     def table2rest(self, tables, merge_string):
 
-        def convert_row(row, row_str, border):
-
-            for i in range(len(row[1])):
-                # numbers of values
-                if i < len(row[1]) - 1:
-                    row_str += ("  " + row[1][i] +
-                                " " * (columns_width[i] -
-                                       utils.length_str(row[1][i])) + ' ')
-                    if row_i == 0:
-                        border += (" " + "=" * (columns_width[i] + 2))
-                else:
-                    row_str += ("  " + row[1][i] +
-                                " " * (columns_width[i]
-                                       - utils.length_str(row[1][i]))
-                                + '  ')
-                    if row_i == 0:
-                        border += (" " + "=" * (columns_width[i] + 2) + ' ')
-            return (row_str, border)
-
         # replace table
         for table in tables:
             '''
@@ -316,7 +297,8 @@ class HatenaXMLParser(object):
 
                 row_str = ''
                 # get row string, row border
-                row_str, border = convert_row(row, row_str, border)
+                row_str, border = convert.convert_row(
+                    row, row_i, columns_width, row_str, border)
 
                 # merge row string with row
                 merge_row_str = convert.merge_row_string(row_str, border)
