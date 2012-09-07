@@ -39,20 +39,20 @@ long_description = \
         open(os.path.join("docs","HISTORY.rst")).read() + \
         open(os.path.join("docs","TODO.rst")).read()
 
-requires = ['setuptools', 'sphinx', 'pystache']
+requires = ['setuptools', 'sphinx', 'tinkerer']
 
-setup(name='htn2rst',
+setup(name='hatena2rest',
       version=htn2rst.__version__,
       description='converting Hatena diary to reST format',
       long_description=long_description,
       author='Kouhei Maeda',
       author_email='mkouhei@palmtb.net',
-      url='https://github.com/mkouhei/htn2rst',
+      url='https://github.com/mkouhei/hatena2rest',
       license=' GNU General Public License version 3',
       classifiers=classifiers,
       packages=find_packages('src'),
       package_dir={'': 'src'},
-      data_files = [('share/htn2rst/templates', ['templates/rest.mustache', 'templates/master.template'])],
+      data_files = [],
       install_requires=requires,
       extras_require=dict(
         test=[

@@ -62,7 +62,7 @@ def main():
         if args.__dict__.get('dstdir'):
             dstdir = args.__dict__.get('dstdir')
         else:
-            # default: ~/tmp/htn2rest/
+            # default: ~/tmp/hatena2rest/
             dstdir = None
 
         if args.__dict__.get('retrieve'):

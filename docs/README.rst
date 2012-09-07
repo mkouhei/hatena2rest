@@ -1,31 +1,28 @@
-htn2rest is tool of converting Hatena Diary to reST format.
-===========================================================
+Hatena2reST is tool of converting Hatena Diary to reST format.
+==============================================================
 
-Exporting data of Hatena Diary are 4 kinds format. Those are XML, Movable Type format, CSV, and PDF. This tools support XML or Movable Type format as input file.
+Exporting data of Hatena Diary are 4 kinds format. Those are XML, Movable Type format, CSV, and PDF. This tools support XML as input file.
 
 
 Requirement
 -----------
 
 * Python 2.x (>= 2.7)
-* `Pystache (>= 0.5.2) <https://github.com/defunkt/pystache>`_
 * Sphinx (>= 1.1.0)
-* `Tinkerer (>= 0.3 beta) <http://tinkerer.bitbucket.org/index.html>`_
+* `Tinkerer (>= 0.4 beta) <http://tinkerer.me/>`_
 
 
 Setup
 -----
 
-Install Debian packages that htn2rst depends on
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Install Debian packages that Hatena2reST depends on
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-htn2rst depends on Python2.7, Sphinx, Pystache, Tinkerer. Install Sphinx is::
+Hatena2reST depends on Python2.7, Sphinx, Tinkerer. Install Sphinx is::
 
   $ sudo apt-get install python-sphinx
 
-But Pystache and Tinkerer are not yet official Debian packages, then download python-pystache and python-tinkerer from http://www.palmtb.net/deb/p/ and http://www.palmtb.net/deb/t/
-
-
+But Tinkerer are not yet official Debian packages, then download python-tinkerer from http://www.palmtb.net/deb/t/
 
 Instal that choosing with one of three ways.
 
@@ -33,35 +30,46 @@ from source
 """""""""""
 ::
 
-   $ git clone https://github.com/mkouhei/htn2rst.git
-   $ cd htn2rst
+   $ git clone https://github.com/mkouhei/hatena2rest.git
+   $ cd src/htn2rst
    $ sudo python setup.py install
 
 PyPI
 """"
 ::
 
-   $ pip install htn2rst
+   $ pip install hatena2rest
 
 Debian package
 """"""""""""""
 
-Not yet official package, then download python-htn2rst-x.x_all.deb from http://www.palmtb.net/deb/ and install with dpkg command.::
+Not yet official package, then download python-hatena2rest-x.x_all.deb from http://www.palmtb.net/deb/ and install with dpkg command.::
 
-  $ wget http://www.palmtb.net/deb/h/python-htn2rst_x.x-x_all.deb
-  $ sudo dpkg -i python-htn2rst_x.x-x_all.deb
+  $ wget http://www.palmtb.net/deb/h/python-hatena2rest_x.x-x_all.deb
+  $ sudo dpkg -i python-hatena2rest_x.x-x_all.deb
 
 
 Usage
 -----
 
-1. Export Hatena Diary with Movable Type format.
-2. Execute below procedure.::
+#. Export Hatena Diary with XML format.
+#. Execute htn2rst commandl. ::
 
-   $ python mt2rest.py hatenaid.txt
-   $ cd out
-   $ tinker -s
-   $ mv master.rst.tmp master.rst
+   $ htn2rst your_hatena_id.xml
+
+Retrieve your photo images when converting, execute htn2rst command with "-r/--retrieve" option. ::
+
+   $ htn2rst -r your_hatena_id.xml
+
+#. Change generated direcotry. ::
+
+   $ cd ~/tmp/hatena2rest
+
+#. Edit necessary setting items of tineker conf file. ::
+
    $ edit conf.py
+
+#. Build from reST to HTML files with tinker command. ::
+
    $ tinker -b -q
 
