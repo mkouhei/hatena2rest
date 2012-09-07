@@ -144,7 +144,13 @@ class HatenaXMLParser(object):
         tables = []
         merge_string = ''
 
-        def convert_start_ref(string_line):
+        def parse_begin_ref(string_line):
+            """Parse begining of reference block
+
+            Argument:
+
+                string: convert target string.
+            """
             pat_start_ref, match_obj = utils.regex_search(
                 '^>((http|https)://(.+?)|)>$', string_line)
             if match_obj:
@@ -160,7 +166,13 @@ class HatenaXMLParser(object):
 
             return string_line
 
-        def convert_end_ref(string_line):
+        def parse_end_ref(string_line):
+            """Parse ending of reference block
+
+            Argument:
+
+                string: convert target string.
+            """
             pat_end_ref, match_obj = utils.regex_search(
                 '^<<', string_line)
             if match_obj:
@@ -170,24 +182,13 @@ class HatenaXMLParser(object):
                 string_line = re.sub('^', '   ', string_line)
             return string_line
 
-        def parse_end_codeblock(string_line):
-            """Parse end of codeblock.
+        def parse_begin_codeblock(string_line):
+            """Parse begining of code block
 
             Argument:
 
-                string_line: parsing target string.
+                string: convert target string.
             """
-            pat_code_close, match_obj = utils.regex_search(
-                '^\|\|<|^\|<$', string_line)
-            if match_obj:
-                string_line = pat_code_close.sub('\n', string_line)
-                # code block closing
-                self.code_flag = False
-            else:
-                string_line = re.sub('^', '   ', string_line)
-            return string_line
-
-        def parse_start_codeblock(string_line):
             pat_code_open, match_obj = utils.regex_search(
                 '>\|([a-zA-Z0-9]*)\|$|>\|()$', string_line)
             if match_obj:
@@ -203,7 +204,32 @@ class HatenaXMLParser(object):
                         '\n.. code-block:: sh\n', string_line)
             return string_line
 
+        def parse_end_codeblock(string_line):
+            """Parse ending of codeblock.
+
+            Argument:
+
+                string_line: parsing target string.
+            """
+            pat_code_close, match_obj = utils.regex_search(
+                '^\|\|<|^\|<$', string_line)
+            if match_obj:
+                string_line = pat_code_close.sub('\n', string_line)
+                # code block closing
+                self.code_flag = False
+            else:
+                string_line = re.sub('^', '   ', string_line)
+            return string_line
+
         def extract_tables(string_line, table, tables):
+            """Extract tables
+
+            Argument:
+
+                string_line: parsing target string.
+                table:       parsing target table
+                tables:      parsing target tables
+            """
             pat_table, match_obj = utils.regex_search(
                 '^\|(.+?)\|$', string_line)
             if match_obj:
@@ -234,7 +260,7 @@ class HatenaXMLParser(object):
 
                 # handle line outside code block
                 else:
-                    str_line = parse_start_codeblock(str_line)
+                    str_line = parse_begin_codeblock(str_line)
 
                     # replace '*' to '\*' of inline
                     str_line = convert.replace_asterisk(str_line)
@@ -258,9 +284,9 @@ class HatenaXMLParser(object):
 
                     # convert refs
                     if self.ref_flag:
-                        str_line = convert_end_ref(str_line)
+                        str_line = parse_end_ref(str_line)
                     else:
-                        str_line = convert_start_ref(str_line)
+                        str_line = parse_begin_ref(str_line)
 
                     # extract table data
                     table, tables = extract_tables(str_line, table, tables)
@@ -276,13 +302,20 @@ class HatenaXMLParser(object):
             return merge_string + '\n' + footnotes
 
     def table2rest(self, tables, merge_string):
+        """Convert hatena syntax to reST of table
+
+            Argument:
+
+                tables:       list of table
+                merge_string: convertd and concatnated strings
+        """
 
         # replace table
         for table in tables:
-            '''
-            tables is list; [table, table, ...]
-            table is list; [row, row]
-            '''
+            """
+            tables is list: [table, table, ...]
+            table is list:  [row, row]
+            """
             replace_line = ''
             border = ''
 
@@ -318,12 +351,12 @@ class HatenaXMLParser(object):
 
         Argument:
 
-            string: text string of blog entry.
+            str_line: text string of blog entry.
 
-        convert is below
-        from: hatena [f:id:imageid:image]
-          to: reST .. image:: imgsrc
-                      :target: uri
+        convert is
+            from: hatena; [f:id:imageid:image]
+            to:   reST  ; .. image:: imgsrc
+                              :target: uri
         """
         r, m = utils.regex_search(
             '\[f:id:(.*):([0-9]*)[a-z]:image(|:.+?)\]', str_line)
@@ -341,6 +374,14 @@ class HatenaXMLParser(object):
         return str_line
 
     def listing2rest(self, str_line):
+        """Convert hatena syntax to reST of list.
+
+        Argument:
+
+            str_line: text string of blog entry.
+
+        """
+
         for i in range(1, 4)[::-1]:
             """list lv is indent depth
             order is 3,2,1 why short matche is stronger than long.
@@ -363,6 +404,13 @@ class HatenaXMLParser(object):
         return str_line
 
     def convert_blog_parts(self, str_line):
+        """Convert blog parts to reST.
+
+        Argument:
+
+            str_line: text string of blog entry.
+
+        """
 
         # remove hatena internal link
         str_line = convert.remove_internal_link(str_line)
@@ -414,7 +462,7 @@ class HatenaXMLParser(object):
 
         Argument:
 
-            string: comment text.
+            comment_text: comment text.
         """
 
         # remove <br>
