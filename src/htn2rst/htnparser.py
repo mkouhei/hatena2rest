@@ -453,7 +453,7 @@ class HatenaXMLParser(object):
         str_line = convert.tweet(str_line)
 
         # for blogparts
-        str_line = convert.blog_parts(str_line)
+        str_line = convert.extract_blog_parts(str_line)
 
         return str_line
 

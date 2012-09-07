@@ -21,6 +21,13 @@ import xml.etree.ElementTree
 
 
 def replace_lexer(key):
+    """Return code-block lexer.
+
+    Argument:
+
+        key: code block syntax name
+    """
+
     lexer = {
         'conf': 'apache',
         'erlang': 'erlang',
@@ -63,10 +70,10 @@ def convert_hyperlink(string):
 
         string: text string of blog entry.
 
-    convert is below
-    from: hatena [url:title:titlestring]
-    to: reST `titlestring <url>`_
-"""
+    convert is
+        from: hatena; [url:title:titlestring]
+        to:   reST  ;  `titlestring <url>`_
+    """
 
     pat_line_head = re.compile(
         '^(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
@@ -84,6 +91,12 @@ def convert_hyperlink(string):
 
 
 def replace_asterisk(string):
+    """Replace asterisk
+
+    Argument:
+
+        string: text string of blog entry.
+    """
 
     # except table header
     if string.find('|*') < 0:
@@ -101,6 +114,13 @@ def replace_asterisk(string):
 
 
 def replace_shell_variable(string):
+    """Replace shell variable
+
+    Argument:
+
+        string: text string of blog entry.
+    """
+
     pat_shell_var, match_obj = utils.regex_search(
         '(\${.+?}[a-zA-Z0-9/_\\\*]+)', string)
     if match_obj:
@@ -110,6 +130,13 @@ def replace_shell_variable(string):
 
 
 def section2rest(string):
+    """Convert hatena syntax to reST of section.
+
+    Argument:
+
+        string: text string of blog entry.
+    """
+
     for i in range(2, 4)[::-1]:
         """2:section, 3:subsection"""
         sep = '-' if i == 2 else '^'
@@ -124,17 +151,18 @@ def section2rest(string):
 
 
 def footnote2rest(string):
-    """Convert footnote.
+    """Convert hatena syntax to reST of footnote.
 
     Argument:
 
         string: text string of blog entry.
 
-    convert is below
-    from: hatena: ((string))
-    to: reST:   inline is [#]_
-                footnote is .. [#] string
+    convert is
+        from: hatena; ((string))
+        to:   reST  ; inline is   [#]_
+                      footnote is .. [#] string
     """
+
     str_rest = string
     footnotes = ''
     pat_fn = re.compile('(\(\((.+?)\)\))', flags=re.U)
@@ -172,6 +200,7 @@ def extract_entry_body(body_text):
 
         body_text: blog entry text.
     """
+
     if body_text.find('\n'):
         entry_body = body_text.split('\n', 1)[1]
         return entry_body
@@ -184,6 +213,7 @@ def handle_comments_element(comments_element):
 
         comments_element: comments element of XML.
     """
+
     comments = [handle_comment_element(comment_element)
                 for comment_element in comments_element]
     return comments
@@ -196,6 +226,7 @@ def handle_comment_element(comment_element):
 
         comment_element: comment element of XML.
     """
+
     username = comment_element.find('username').text
 
     unixtime = comment_element.find('timestamp').text
@@ -207,6 +238,14 @@ def handle_comment_element(comment_element):
 
 
 def parse_amazlet(xmltree):
+    """Convert blog parts of amazlet to hyperlink
+
+    Argument:
+
+        xmltree: XML tree object
+
+    """
+
     anchor_element = xmltree.find('div').find('a')
     img_element = anchor_element.find('img')
 
@@ -218,12 +257,28 @@ def parse_amazlet(xmltree):
 
 
 def parse_twitter(xmltree):
+    """Retrieve URI from blog parts of twitter
+
+    Argument:
+
+        xmltree: XML tree object
+
+    """
+
     uri = [i.get('href') for i in xmltree.find('p')
            if i.get('title')][0]
     return uri
 
 
 def parse_slideshare(xmltree):
+    """Convert blog parts of slideshare to hyperlink
+
+    Argument:
+
+        xmltree: XML tree object
+
+    """
+
     uri = xmltree.find('strong').find('a').get('href')
     title = xmltree.find('strong').find('a').get('title')
     repl_slideshare = '\n`' + title + ' <' + uri + '>`_\n'
@@ -231,6 +286,18 @@ def parse_slideshare(xmltree):
 
 
 def convert_row(row, row_i, columns_width, row_str, border):
+    """Convert row of table.
+
+    Argument:
+
+        row:           taple of row string of hatena syntax and columns values
+        row_i:         row index
+        columns_width: list of maximum width of each columns
+        row_str:       converted row string
+        border:        reST table border line string
+
+    """
+
     for i in range(len(row[1])):
         # numbers of values
         if i < len(row[1]) - 1:
@@ -250,6 +317,15 @@ def convert_row(row, row_i, columns_width, row_str, border):
 
 
 def get_columns_width_list(table, columns_width):
+    """Retrieve list of maximum width of each columns.
+
+    Argument:
+
+        table:         list of rows
+        columns_width: list of maximum width of each columns
+
+    """
+
     for row in table:
         '''
         row is tuple; (pattern, values)
@@ -265,6 +341,15 @@ def get_columns_width_list(table, columns_width):
 
 
 def merge_row_string(row_str, border):
+    """Merge string from each rows
+
+    Argument:
+
+        row_str: row string merged each columns string
+        border:  table border line string
+
+    """
+
     merge_row_str = ''
     pat_row = re.compile(' \*')
     if pat_row.search(row_str):
@@ -276,6 +361,14 @@ def merge_row_string(row_str, border):
 
 
 def remove_span(string):
+    """Remove span element.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_span, m = utils.regex_search(
         '(<span .+?>(.+?)</span>)', string)
     if m:
@@ -284,6 +377,14 @@ def remove_span(string):
 
 
 def remove_del(string):
+    """Remove del element.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_del, m = utils.regex_search(
         '(<del( .+?|)>(.+?)</del>)', string)
     if m:
@@ -292,6 +393,14 @@ def remove_del(string):
 
 
 def img2image(string):
+    """Convert html img element to reST image directive.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_img, m = utils.regex_search('^<img src="(.+?)" .+?(/?)>', string)
     if m:
         string = pat_img.sub('\n.. image:: ' + m.group(1)
@@ -300,6 +409,14 @@ def img2image(string):
 
 
 def google_maps(string):
+    """Convert blog parts of google maps to reST raw directive.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     if (string.find('http://maps.google.com/') > 0 or
         string.find('http://maps.google.co.jp/') > 0):
         pat_google_maps, m = utils.regex_search(
@@ -312,6 +429,14 @@ def google_maps(string):
 
 
 def gmodules(string):
+    """Convert blog parts of gmodules to reST raw directive.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     if (string.find('http://gmodules.com') > 0 or
         string.find('https://gist.github.com') > 0):
         pat_gmodules, m = utils.regex_search(
@@ -323,6 +448,14 @@ def gmodules(string):
 
 
 def youtube(string):
+    """Convert blog parts of YouTube to reST raw directive.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     if string.find('http://www.youtube.com') > 0:
         pat_youtube, m = utils.regex_search(
             '(<object .+?>(.*?)</.+?>)', string)
@@ -379,6 +512,13 @@ def get_metadata(string):
 
 
 def parse_blog_parts(string):
+    """Parse and convert blog parts.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
 
     ex_ref_char = re.compile('\&(?!amp;)')
     string = ex_ref_char.sub('&amp;', string)
@@ -402,7 +542,15 @@ def parse_blog_parts(string):
         return repl_slideshare
 
 
-def blog_parts(string):
+def extract_blog_parts(string):
+    """Extract blog parts from blog entry string.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     html_tags = re.compile('(^(<.+?>(.+?)</.+?>)$)', flags=re.U)
     m = html_tags.search(string)
     if m:
@@ -412,6 +560,14 @@ def blog_parts(string):
 
 
 def tweet(string):
+    """Convert blog parts of twitter to reST hyperlink.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_comment, m = utils.regex_search(
         '((<!-- (.+?) -->) (<.+?>(.+?)</.+?> )(<!-- (.+) -->))', string)
     if m:
@@ -444,6 +600,14 @@ def tweet(string):
 
 
 def ditto(string):
+    """Convert blog parts of twitter with ditto to reST hyperlink.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_ditto, m = utils.regex_search(
         '(<style .+?>.+?</style>)(<div .+?>.+?</div>)', string)
     if m:
@@ -476,6 +640,14 @@ def ditto(string):
 
 
 def remove_internal_link(string):
+    """Remove hatena internal link.
+
+    Argument:
+
+        string: blog entry body string.
+
+    """
+
     pat_hatena_internal_link, m = utils.regex_search(
         '(\[\[|\]\])', string)
     if m:
