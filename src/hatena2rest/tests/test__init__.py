@@ -5,12 +5,12 @@
 Tests of __init__.py
 """
 import unittest
-import htn2rst
+import hatena2rest
 
 
 class InitTests(unittest.TestCase):
     def test_version_defined(self):
-        actual_version = htn2rst.__version__
+        actual_version = hatena2rest.__version__
         self.assertTrue(actual_version)
 
 if __name__ == '__main__':

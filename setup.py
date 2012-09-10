@@ -22,7 +22,7 @@ import sys
 from setuptools import setup, find_packages
 
 sys.path.insert(0, 'src')
-import htn2rst
+import hatena2rest
 
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -42,7 +42,7 @@ long_description = \
 requires = ['setuptools', 'sphinx', 'tinkerer']
 
 setup(name='hatena2rest',
-      version=htn2rst.__version__,
+      version=hatena2rest.__version__,
       description='converting Hatena diary to reST format',
       long_description=long_description,
       author='Kouhei Maeda',
@@ -65,6 +65,6 @@ setup(name='hatena2rest',
       tests_require=['nose','pep8','unittest'],
       entry_points="""
         [console_scripts]
-        htn2rst = htn2rst.command:main
+        htn2rst = hatena2rest.command:main
 """,
 )
