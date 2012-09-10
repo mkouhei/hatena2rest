@@ -58,6 +58,7 @@ def setoption(obj, kword):
 
 def main():
     try:
+
         args = parse_options()
         f = args.__dict__.get('infile')
         if f.find('~') == 0:

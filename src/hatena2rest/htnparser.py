@@ -368,7 +368,6 @@ class HatenaXMLParser(object):
             img_src = utils.retrieve_image(img_uri_partial,
                                            self.dstdir + __imgdir__,
                                            self.retrieve_image_flag)
-            utils.error(img_src)
             repl_str = ('\n.. image:: ' + __imgdir__ + img_src)
             str_line = r.sub(repl_str, str_line)
         return str_line

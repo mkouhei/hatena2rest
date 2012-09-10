@@ -42,6 +42,9 @@ def xml2rest(infile, dstdir=None, retrieve_image_flag=False):
     else:
         dstdir = os.patn.expanduser(dstdir)
 
+    # make directory
+    mkdir(dstdir)
+
     if not os.path.isfile(dstdir + 'conf.py'):
         # chdir to dstdir
         os.chdir(dstdir)
