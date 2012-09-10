@@ -87,25 +87,18 @@ def remove_element_entity(string):
     pat_del = re.compile('<del>.+?</del>')
     m = pat_del.search(string)
     if m:
-        replaced_str = pat_del.sub('', string)
-    else:
-        replaced_str = string
-
-    # remove space
-    replaced_str = replaced_str.replace('&nbsp;', '')
+        string = pat_del.sub('', string)
 
     # remove span_begin element
     pat_span_begin = re.compile('<span style=(.+?)>')
     m = pat_span_begin.search(string)
     if m:
-        replaced_str = pat_span_begin.sub('', string)
-    else:
-        replaced_str = string
+        string = pat_span_begin.sub('', string)
 
     # remove span_end element
-    replaced_str = replaced_str.replace('</span>', '')
+    string = string.replace('</span>', '')
 
-    return replaced_str
+    return string
 
 
 def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
