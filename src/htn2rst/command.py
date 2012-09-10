@@ -19,10 +19,12 @@ import os.path
 import sys
 import argparse
 import processing
+import utils
 from __init__ import __version__
 
 
 def parse_options():
+    """Parse command line options"""
     prs = argparse.ArgumentParser(description='usage')
     prs.add_argument('-V', '--version', action='version', version=__version__)
     setoption(prs, 'retrieve')
@@ -33,6 +35,14 @@ def parse_options():
 
 
 def setoption(obj, kword):
+    """Set option by keyword
+
+    Argument:
+
+        obj:   Parser object
+        kword: Keyword of option
+    """
+
     if kword == 'infile':
         obj.add_argument('infile', action='store',
                          help='specify input exported file of hatena diary')
@@ -44,10 +54,6 @@ def setoption(obj, kword):
     if kword == 'retrieve':
         obj.add_argument('-r', '--retrieve', action='store_true',
                          help='Retrieve image from web services')
-
-
-def error(e):
-    sys.stderr.write("ERROR: %s\n" % e)
 
 
 def main():
@@ -73,10 +79,10 @@ def main():
         processing.xml2rest(infile, dstdir, retrieve_image_flag)
 
     except RuntimeError as e:
-        error(e)
+        utils.error(e)
         return
     except UnboundLocalError as e:
-        error(e)
+        utils.error(e)
         return
 
 if __name__ == '__main__':

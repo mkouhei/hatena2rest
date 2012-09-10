@@ -120,7 +120,7 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
 
         with open(img_path, 'w') as f:
             f.write(data)
-            logging('OK: ' + img_path)
+            error('OK: ' + img_path)
             return True
 
     if not os.path.isdir(img_src_dir):
@@ -159,7 +159,7 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
                     time.sleep(__sleep__)
 
                 except urllib.HTTPError as e:
-                    logging(e)
+                    utils.error(e)
                     img_path = ''
                     continue
 
@@ -182,18 +182,10 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
                     time.sleep(__sleep__)
 
             except urllib.HTTPError as e:
-                logging(e)
+                error(e)
                 img_path = ''
 
         return os.path.basename(img_path)
-
-
-def logging(msg, debug=False):
-    if debug:
-        with open(__log__, 'a') as f:
-            f.write('##### ' + datetime.now() + ' #####\n')
-            f.write(msg)
-            f.write('\n')
 
 
 def regex_search(pattern, string):
@@ -212,3 +204,13 @@ def regex_search(pattern, string):
     pat_regex = re.compile(pattern, flags=re.U)
     match_obj = pat_regex.search(string)
     return pat_regex, match_obj
+
+
+def error(e):
+    """Print standard error
+
+    Argument:
+
+        e: Error message
+    """
+    sys.stderr.write("ERROR: %s\n" % e)

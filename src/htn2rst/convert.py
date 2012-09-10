@@ -528,7 +528,7 @@ def parse_blog_parts(string):
     try:
         xmltree = xml.etree.ElementTree.fromstring(string)
     except:
-        print string
+        utils.error(string)
 
     if xmltree.get('class') == 'amazlet-box':
         repl_amazon = parse_amazlet(xmltree)
