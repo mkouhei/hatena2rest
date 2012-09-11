@@ -72,13 +72,16 @@ def length_str(string):
     fwa = ['F', 'W', 'A']
     hnna = ['H', 'N', 'Na']
 
-    zenkaku = len([unicodedata.east_asian_width(c)
-                   for c in string
-                   if unicodedata.east_asian_width(c) in fwa])
-    hankaku = len([unicodedata.east_asian_width(c)
-                   for c in string
-                   if unicodedata.east_asian_width(c) in hnna])
-    return (zenkaku * 2 + hankaku)
+    if isinstance(string, unicode):
+        zenkaku = len([unicodedata.east_asian_width(c)
+                       for c in string
+                       if unicodedata.east_asian_width(c) in fwa])
+        hankaku = len([unicodedata.east_asian_width(c)
+                       for c in string
+                       if unicodedata.east_asian_width(c) in hnna])
+        return (zenkaku * 2 + hankaku)
+    elif isinstance(string, str):
+        return len(string)
 
 
 def remove_element_entity(string):
