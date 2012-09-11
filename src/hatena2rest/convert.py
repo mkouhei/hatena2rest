@@ -285,6 +285,14 @@ def parse_slideshare(xmltree):
     return repl_slideshare
 
 
+def parse_heyquiz(xmltree):
+    uri = xmltree.get('href')
+    img_src = xmltree.find('img').get('src')
+    img_alt = xmltree.find('img').get('alt')
+    repl_heyquiz = '\n`' + img_alt + ' <' + img_src + '>`_\n'
+    return repl_heyquiz
+
+
 def convert_row(row, row_i, columns_width, row_str, border):
     """Convert row of table.
 
@@ -537,9 +545,12 @@ def parse_blog_parts(string):
         if xmltree.get('class').find('bbpBox') == 0:
             repl_twitter = parse_twitter(xmltree)
             return repl_twitter
-    if xmltree.get('id').find('__ss_') == 0:
+    if str(xmltree.get('id')).find('__ss_') == 0:
         repl_slideshare = parse_slideshare(xmltree)
         return repl_slideshare
+    if str(xmltree.get('href')).find('heyquiz.com') >= 0:
+        repl_heyquiz = parse_heyquiz(xmltree)
+        return repl_heyquiz
 
 
 def extract_blog_parts(string):
