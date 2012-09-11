@@ -61,7 +61,7 @@ def xml2rest(infile, dstdir=None, retrieve_image_flag=False):
         # make directory
         mkdir(dstdir + dirpath)
 
-        for body in bodies:
+        for body in bodies[::-1]:
 
             timestamp = body[1]
             title = body[0]
