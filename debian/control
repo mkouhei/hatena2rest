@@ -1,0 +1,14 @@
+Source: hatena2rest
+Section: python
+Priority: optional
+Maintainer: Kouhei Maeda <mkouhei@palmtb.net>
+Build-Depends: debhelper (>= 8.0.0), python-all, python-setuptools, python-nose, pep8
+Standards-Version: 3.9.3
+X-Python-Version: 2.7
+Homepage: https://github.com/mkouhei/hatena2rest
+
+Package: python-hatena2rest
+Architecture: all
+Depends: ${python:Depends}, ${misc:Depends}, python-tinkerer, python-sphinx
+Description: conversion tool from Hatena Diary to reST format.
+ Hatena2reST is for conversion from Hatena Diary to Tinkerer. Tinkerer is blog system of reST format that is powered by Sphinx. Exported data of Hatena Diary are four kinds format. Those are XML, Movable Type format, CSV and PDF. This tools support XML only.

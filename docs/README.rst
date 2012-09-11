@@ -1,7 +1,7 @@
-Hatena2reST is tool of converting Hatena Diary to reST format.
-==============================================================
+Hatena2reST is conversion tool from Hatena Diary to reST format.
+================================================================
 
-Exporting data of Hatena Diary are 4 kinds format. Those are XML, Movable Type format, CSV, and PDF. This tools support XML as input file.
+Hatena2reST is for conversion from Hatena Diary to Tinkerer. Tinkerer is blog system of reST format that is powered by Sphinx. Exported data of Hatena Diary are four kinds format. Those are XML, Movable Type format, CSV and PDF. This tools support XML only.
 
 
 Requirement
@@ -31,7 +31,7 @@ from source
 ::
 
    $ git clone https://github.com/mkouhei/hatena2rest.git
-   $ cd src/htn2rst
+   $ cd hatena2rest
    $ sudo python setup.py install
 
 PyPI

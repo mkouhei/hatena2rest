@@ -26,7 +26,7 @@ from __init__ import __version__
 def parse_options():
     """Parse command line options"""
     prs = argparse.ArgumentParser(description='usage')
-    prs.add_argument('-V', '--version', action='version', version=__version__)
+    prs.add_argument('-v', '--version', action='version', version=__version__)
     setoption(prs, 'retrieve')
     setoption(prs, 'infile')
     setoption(prs, 'dstdir')
@@ -53,7 +53,7 @@ def setoption(obj, kword):
 
     if kword == 'retrieve':
         obj.add_argument('-r', '--retrieve', action='store_true',
-                         help='Retrieve image from web services')
+                         help='retrieve image from web services')
 
 
 def main():
