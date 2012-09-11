@@ -155,7 +155,7 @@ def retrieve_image(img_uri, img_src_dir, retrieve_image_flag=False):
                     time.sleep(__sleep__)
 
                 except urllib.HTTPError as e:
-                    utils.error(e)
+                    error(e)
                     img_path = ''
                     continue
 
