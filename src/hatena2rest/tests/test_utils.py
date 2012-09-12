@@ -5,6 +5,7 @@
 Tests of utils.py
 """
 import unittest
+import time
 import hatena2rest.utils as u
 
 
@@ -22,10 +23,16 @@ class UtilsTests(unittest.TestCase):
         self.regex = '<span(.+?|)>(.+?)</span>'
 
     def test_unix2ctime(self):
-        self.assertEqual(u.unix2ctime(self.unixtime, date_enabled=False),
-                         '121407')
-        self.assertEqual(u.unix2ctime(self.unixtime),
-                         'Tue Jan 19 12:14:07 2038')
+        if time.tzname == 'JST':
+            self.assertEqual(u.unix2ctime(self.unixtime, date_enabled=False),
+                             '121407')
+            self.assertEqual(u.unix2ctime(self.unixtime),
+                             'Tue Jan 19 12:14:07 2038')
+        if time.timezone == 0:
+            self.assertEqual(u.unix2ctime(self.unixtime, date_enabled=False),
+                             '031407')
+            self.assertEqual(u.unix2ctime(self.unixtime),
+                             'Tue Jan 19 03:14:07 2038')
 
     def test_length_str(self):
         self.assertEqual(u.length_str(self.hankaku), 13)
