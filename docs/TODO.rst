@@ -2,8 +2,6 @@
 ToDo
 ----
 
-This has some unsupported issues.
-
-* Setup script
-* Test
+* unit test
+* multi blog conversion with merging master.rst
 
