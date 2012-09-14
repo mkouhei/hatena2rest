@@ -98,7 +98,6 @@ def footer(categories):
     pat_list = re.compile('\[|\]')
     footer_str = ('.. author:: default\n' +
             '.. categories:: ' + category(categories) + '\n' +
-            '.. tags::\n' +
             '.. comments::\n')
     return footer_str
 
