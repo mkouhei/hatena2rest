@@ -108,5 +108,5 @@ def category(categories=None):
         return ''
     cat_str = ''
     for cat in categories:
-        cat_str += cat + ', '
-    return cat_str
+        cat_str += cat + ','
+    return cat_str.rstrip(',')

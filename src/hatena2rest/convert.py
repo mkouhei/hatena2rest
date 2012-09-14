@@ -81,6 +81,11 @@ def convert_hyperlink(string):
         string = string.replace(
             i[0], '`' + i[3] + ' <' + i[1] + '>`_ ')
 
+    pat_line_head2 = re.compile(
+        '^( (`.+ <.+>`_))', flags=re.U)
+    for i in pat_line_head2.findall(string):
+        string = string.replace(i[0], i[1])
+
     pat_inline = re.compile(
             '(\[((http|https)://.+?):title=(.+?)\])', flags=re.U)
     for i in pat_inline.findall(string):
@@ -488,10 +493,11 @@ def get_metadata(string):
 
         timestamp: (\d*)
         category: (\[.*\])*
-        title with uri: (\[http?://.*\])(.*)
+        title with uri converted: ( `.+ <.+>`_ )(.*)
         """
-        pat_title = re.compile('\*?(\d*)\*(\[.*\])*(\[http?://.*\])(.*)',
-                               flags=re.U)
+        pat_title_with_link = re.compile(
+            '\*?(\d*)\*(\[.*\])*( `.+ <.+>`_ )(.*)',
+            flags=re.U)
 
         """pattern b)
 
@@ -499,21 +505,20 @@ def get_metadata(string):
         category: (\[.*\])*
         title: (.*)
         """
-        pat_title_with_link = re.compile(
+        pat_title = re.compile(
             '\*?(\d*)\*(\[.*\])*(.*)', flags=re.U)
 
-        if pat_title.search(string):
+        if pat_title_with_link.search(string):
             # pattern a)
             timestamp, str_categories, linked_title, str_title = (
-                pat_title.search(string).groups())
+                pat_title_with_link.search(string).groups())
 
-            title = convert_hyperlink(
-                linked_title) + str_title
+            title = convert_hyperlink(linked_title) + str_title
 
-        elif pat_title_with_link.search(string):
+        elif pat_title.search(string):
             # pattern b)
             timestamp, str_categories, title = (
-                pat_title_with_link.search(string).groups())
+                pat_title.search(string).groups())
 
         return (utils.unix2ctime(timestamp, date_enabled=False),
                 extract_categories(str_categories), title)

@@ -125,6 +125,7 @@ class HatenaXMLParser(object):
             body_text: text string of one blog entry.
         """
         if body_text:
+            body_text = convert.convert_hyperlink(body_text)
             timestamp, categories, title = convert.get_metadata(
                 body_text.split('\n', 1)[0])
             entry_body = convert.extract_entry_body(body_text)
