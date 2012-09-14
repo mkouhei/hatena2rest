@@ -1,6 +1,11 @@
 HISTORY
 -------
 
+0.1.1 (2012-09-14)
+^^^^^^^^^^^^^^^^^^
+
+* Fix convert categories and title with URI.
+
 0.1 (2012-09-12)
 ^^^^^^^^^^^^^^^^
 
