@@ -31,7 +31,7 @@ import re
 import os.path
 import utils
 import htnparser
-import commands
+import subprocess
 from __init__ import __dstdir__
 
 
@@ -50,7 +50,7 @@ def xml2rest(infile, dstdir=None, retrieve_image_flag=False):
         os.chdir(dstdir)
 
         # exec tinker setup
-        commands.getstatusoutput('tinker -s')
+        subprocess.Popen(['tinker', '-s'])
 
     p = htnparser.HatenaXMLParser(infile, dstdir, retrieve_image_flag)
 
