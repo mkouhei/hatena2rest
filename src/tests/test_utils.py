@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
@@ -6,6 +5,9 @@ Tests of utils.py
 """
 import unittest
 import time
+import sys
+import os.path
+sys.path.append(os.path.abspath('src'))
 import hatena2rest.utils as u
 
 
@@ -16,10 +18,10 @@ class UtilsTests(unittest.TestCase):
         self.hankaku = u'abcABC123-%$s'
         self.zenkaku = u'日本語テスト'
         self.zenhankaku = u'日本語hogeほげ'
-        self.html_str = '<del>100</del>もげ&nbsp;200&nbsp; 300\
- <span style="test">400</span>'
-        self.html_str2 = '<span><del>100</del>もげ&nbsp;200&nbsp; 300\
- <span style="test">400</span></span>'
+        self.html_str = ('<del>100</del>もげ&nbsp;200&nbsp; 300'
+        ' <span style="test">400</span>')
+        self.html_str2 = ('<span><del>100</del>もげ&nbsp;200&nbsp; 300'
+        ' <span style="test">400</span></span>')
         self.regex = '<span(.+?|)>(.+?)</span>'
 
     def test_unix2ctime(self):
@@ -44,7 +46,3 @@ class UtilsTests(unittest.TestCase):
                          'もげ&nbsp;200&nbsp; 300 400')
         self.assertEqual(u.remove_element_entity(self.html_str2),
                          '<span>もげ&nbsp;200&nbsp; 300 400')
-
-
-if __name__ == '__main__':
-    unittest.main()

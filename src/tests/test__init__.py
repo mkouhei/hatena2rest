@@ -1,10 +1,12 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 """
 Tests of __init__.py
 """
 import unittest
+import sys
+import os.path
+sys.path.append(os.path.abspath('src'))
 import hatena2rest
 
 
