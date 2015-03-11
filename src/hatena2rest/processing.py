@@ -40,7 +40,7 @@ def xml2rest(infile, dstdir=None, retrieve_image_flag=False):
     if dstdir is None:
         dstdir = os.path.expanduser(__dstdir__)
     else:
-        dstdir = os.patn.expanduser(dstdir)
+        dstdir = os.path.expanduser(dstdir)
 
     # make directory
     mkdir(dstdir)
